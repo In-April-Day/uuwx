@@ -7,12 +7,6 @@ interface FooterLink {
 
 interface FooterConfig {
   links: FooterLink[];
-  provider: {
-    name: string;
-    link: string;
-    logo: string;
-    text: string;
-  };
 }
 
 export const footerConfig: FooterConfig = {
@@ -23,14 +17,8 @@ export const footerConfig: FooterConfig = {
     },
     {
       text: "GitHub",
-      href: "https://github.com/acanyo",
+      href: "https://github.com/In-April-Day",
       target: "_blank",
     },
   ],
-  provider: {
-    name: "雨云",
-    link: "https://www.rainyun.com/handsome_",
-    logo: "https://app.rainyun.com/img/icons/apple-touch-icon-152x152.png",
-    text: "提供 CDN 加速 / 云存储服务",
-  },
 };
