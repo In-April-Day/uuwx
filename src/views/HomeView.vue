@@ -167,6 +167,31 @@ const structuredData = {
             <div class="halo-effect"></div>
             <div class="rotating-border"></div>
           </div>
+          <div class="pyramid-loader">
+            <div class="pyramid-wrapper">
+              <span class="pyramid-side s1"></span>
+              <span class="pyramid-side s2"></span>
+              <span class="pyramid-side s3"></span>
+              <span class="pyramid-side s4"></span>
+              <span class="pyramid-shadow"></span>
+            </div>
+          </div>
+          <div class="liquid-loader">
+            <svg width="100" height="100" viewBox="0 0 100 100">
+              <defs>
+                <mask id="clipping">
+                  <polygon points="0,0 100,0 100,100 0,100" fill="black"></polygon>
+                  <polygon points="25,25 75,25 50,75" fill="white"></polygon>
+                  <polygon points="50,25 75,75 25,75" fill="white"></polygon>
+                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
+                </mask>
+              </defs>
+            </svg>
+            <div class="liquid-box"></div>
+          </div>
           <svg
             id="svg-global"
             xmlns="http://www.w3.org/2000/svg"
@@ -861,6 +886,181 @@ const structuredData = {
 #panel-rigth,
 #reflectores,
 #particles { animation-delay: 0.4s; }
+
+/* ===== Pyramid Loader ===== */
+.pyramid-loader {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  transform-style: preserve-3d;
+  transform: rotateX(-20deg);
+  flex-shrink: 0;
+}
+
+.pyramid-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  animation: pyramid-spin 4s linear infinite;
+}
+
+@keyframes pyramid-spin {
+  to { transform: rotateY(360deg); }
+}
+
+.pyramid-side {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 50px;
+  height: 50px;
+  transform-origin: center top;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+}
+
+.pyramid-side.s1 {
+  transform: rotateZ(-30deg) rotateY(90deg);
+  background: conic-gradient(#2BDEAC, #F028FD, #D8CCE6, #2F2585);
+}
+
+.pyramid-side.s2 {
+  transform: rotateZ(30deg) rotateY(90deg);
+  background: conic-gradient(#2F2585, #D8CCE6, #F028FD, #2BDEAC);
+}
+
+.pyramid-side.s3 {
+  transform: rotateX(30deg);
+  background: conic-gradient(#2F2585, #D8CCE6, #F028FD, #2BDEAC);
+}
+
+.pyramid-side.s4 {
+  transform: rotateX(-30deg);
+  background: conic-gradient(#2BDEAC, #F028FD, #D8CCE6, #2F2585);
+}
+
+.pyramid-shadow {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 45px;
+  height: 45px;
+  background: #8B5AD5;
+  transform: rotateX(90deg) translateZ(-35px);
+  filter: blur(10px);
+}
+
+/* ===== Liquid Loader ===== */
+.liquid-loader {
+  --c1: #ffbf48;
+  --c2: #be4a1d;
+  --c3: #ffbf4780;
+  --c4: #bf4a1d80;
+  --c5: #ffbf4740;
+  --t: 2s;
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow:
+    0 0 25px 0 var(--c3),
+    0 20px 50px 0 var(--c4);
+  animation: loader-colorize calc(var(--t) * 3) ease-in-out infinite;
+}
+
+.liquid-loader::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border-top: solid 1px var(--c1);
+  border-bottom: solid 1px var(--c2);
+  background: linear-gradient(180deg, var(--c5), var(--c4));
+  box-shadow:
+    inset 0 10px 10px 0 var(--c3),
+    inset 0 -10px 10px 0 var(--c4);
+}
+
+.liquid-box {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(180deg, var(--c1) 30%, var(--c2) 70%);
+  mask: url(#clipping);
+  -webkit-mask: url(#clipping);
+}
+
+.liquid-loader svg {
+  position: absolute;
+}
+
+.liquid-loader svg #clipping {
+  filter: contrast(15);
+  animation: loader-roundness calc(var(--t) / 2) linear infinite;
+}
+
+.liquid-loader svg #clipping polygon {
+  filter: blur(7px);
+}
+
+.liquid-loader svg #clipping polygon:nth-child(1) {
+  transform-origin: 75% 25%;
+  transform: rotate(90deg);
+}
+
+.liquid-loader svg #clipping polygon:nth-child(2) {
+  transform-origin: 50% 50%;
+  animation: loader-rotation var(--t) linear infinite reverse;
+}
+
+.liquid-loader svg #clipping polygon:nth-child(3) {
+  transform-origin: 50% 60%;
+  animation: loader-rotation var(--t) linear infinite;
+  animation-delay: calc(var(--t) / -3);
+}
+
+.liquid-loader svg #clipping polygon:nth-child(4) {
+  transform-origin: 40% 40%;
+  animation: loader-rotation var(--t) linear infinite reverse;
+}
+
+.liquid-loader svg #clipping polygon:nth-child(5) {
+  transform-origin: 40% 40%;
+  animation: loader-rotation var(--t) linear infinite reverse;
+  animation-delay: calc(var(--t) / -2);
+}
+
+.liquid-loader svg #clipping polygon:nth-child(6) {
+  transform-origin: 60% 40%;
+  animation: loader-rotation var(--t) linear infinite;
+}
+
+.liquid-loader svg #clipping polygon:nth-child(7) {
+  transform-origin: 60% 40%;
+  animation: loader-rotation var(--t) linear infinite;
+  animation-delay: calc(var(--t) / -1.5);
+}
+
+@keyframes loader-rotation {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes loader-roundness {
+  0%   { filter: contrast(15); }
+  20%  { filter: contrast(3); }
+  40%  { filter: contrast(3); }
+  60%  { filter: contrast(15); }
+  100% { filter: contrast(15); }
+}
+
+@keyframes loader-colorize {
+  0%   { filter: hue-rotate(0deg); }
+  20%  { filter: hue-rotate(-30deg); }
+  40%  { filter: hue-rotate(-60deg); }
+  60%  { filter: hue-rotate(-90deg); }
+  80%  { filter: hue-rotate(-45deg); }
+  100% { filter: hue-rotate(0deg); }
+}
 
 /* ===== 响应式 ===== */
 @media (max-width: 640px) {
