@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
 import PageTransition from "@/components/PageTransition.vue";
 import { config } from "@/config";
 import { siteConfig } from "@/config/site";
+
+const router = useRouter();
 
 const titles = ref(["躺平", "逃避", "睡觉"]);
 const currentTitleIndex = ref(0);
@@ -72,6 +75,27 @@ const handleMouseEnter = () => {
   const glare = glareRef.value;
   if (card) card.style.transition = "";
   if (glare) glare.style.transition = "";
+};
+
+// 四个元素的点击跳转
+const clickAvatar = () => router.push("/contact");
+const clickServer = () => router.push("/projects");
+const clickPyramid = () => router.push("/skills");
+
+// 元素球点击特效
+const ripples = ref<{ x: number; y: number; id: number }[]>([]);
+let rippleId = 0;
+
+const clickLiquid = (e: MouseEvent) => {
+  const target = e.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const id = rippleId++;
+  ripples.value.push({ x, y, id });
+  setTimeout(() => {
+    ripples.value = ripples.value.filter((r: { id: number }) => r.id !== id);
+  }, 600);
 };
 
 onMounted(() => {
@@ -157,11 +181,12 @@ const structuredData = {
           
           <!-- 元素1：用户头像（最上，左对齐） -->
           <div class="w-full flex justify-start pl-4 lg:pl-12">
-            <div class="relative inline-block avatar-container transform hover:scale-105 transition-transform duration-300">
+            <div class="relative inline-block avatar-container transform hover:scale-[1.2] ease-bounce transition-transform duration-500">
               <img
                 src="https://q.qlogo.cn/headimg_dl?dst_uin=884738667&spec=640&img_type=jpg"
                 alt="头像"
-                class="w-20 h-20 md:w-24 md:h-24 rounded-full shadow-xl border-4 border-white dark:border-gray-700 avatar"
+                class="w-20 h-20 md:w-24 md:h-24 rounded-full shadow-xl border-4 border-white dark:border-gray-700 avatar cursor-pointer"
+                @click="clickAvatar"
               />
               <div class="glow-effect"></div>
               <div class="halo-effect"></div>
@@ -178,7 +203,8 @@ const structuredData = {
               viewBox="0 0 94 136"
               height="100"
               width="70"
-              class="transform hover:scale-110 transition-transform duration-300"
+              class="transform hover:scale-[1.2] ease-bounce transition-transform duration-500 cursor-pointer"
+              @click="clickServer"
             >
               <path
                 stroke="#4B22B5"
@@ -517,7 +543,7 @@ const structuredData = {
 
           <!-- 元素3：3金字塔（左侧，左对齐） -->
           <div class="w-full flex justify-start pl-8 lg:pl-16">
-            <div class="pyramid-loader transform hover:scale-110 transition-transform duration-300">
+            <div class="pyramid-loader transform hover:scale-[1.2] ease-bounce transition-transform duration-500 cursor-pointer" @click="clickPyramid">
               <div class="pyramid-wrapper">
                 <span class="pyramid-side s1"></span>
                 <span class="pyramid-side s2"></span>
@@ -530,7 +556,14 @@ const structuredData = {
 
           <!-- 元素4：元素球（右侧，右对齐） -->
           <div class="w-full flex justify-end pr-4 lg:pr-12">
-            <div class="liquid-loader transform hover:scale-110 transition-transform duration-300">
+            <div ref="liquidRef" class="liquid-loader transform hover:scale-[1.2] ease-bounce transition-transform duration-500 cursor-pointer" @click="clickLiquid">
+              <!-- 涟漪特效 -->
+              <div
+                v-for="ripple in ripples"
+                :key="ripple.id"
+                class="ripple-effect"
+                :style="{ left: ripple.x + 'px', top: ripple.y + 'px' }"
+              ></div>
               <svg width="100" height="100" viewBox="0 0 100 100">
                 <defs>
                   <mask id="clipping">
@@ -759,6 +792,14 @@ const structuredData = {
 .avatar-container {
   position: relative;
   z-index: 1;
+}
+
+.avatar-container > * {
+  pointer-events: none;
+}
+
+.avatar-container > img {
+  pointer-events: auto;
 }
 
 .avatar {
@@ -1075,6 +1116,31 @@ const structuredData = {
   60%  { filter: hue-rotate(-90deg); }
   80%  { filter: hue-rotate(-45deg); }
   100% { filter: hue-rotate(0deg); }
+}
+
+/* ===== 弹性动画 ===== */
+.ease-bounce {
+  transition-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* ===== 涟漪特效 ===== */
+.ripple-effect {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 191, 72, 0.6);
+  transform: translate(-50%, -50%) scale(0);
+  animation: ripple-expand 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes ripple-expand {
+  to {
+    transform: translate(-50%, -50%) scale(6);
+    opacity: 0;
+  }
 }
 
 /* ===== 响应式 ===== */
