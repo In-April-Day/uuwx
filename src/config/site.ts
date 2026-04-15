@@ -35,6 +35,6 @@ export const siteConfig = {
   // 社交媒体链接
   social: {
     github: "https://github.com/acanyo", // GitHub主页
-    email: "30819792@qq.com", // 联系邮箱
+    email: "884738667@qq.com", // 联系邮箱
   },
 };
