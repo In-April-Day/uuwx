@@ -20,8 +20,8 @@ const contactList = ref<ContactItem[]>([
   },
   {
     name: "GitHub",
-    value: siteConfig.githubHandle || "acanyo",
-    href: siteConfig.social.github || "https://github.com/acanyo",
+    value: siteConfig.githubHandle || "In-April-Day",
+    href: siteConfig.social.github || "https://github.com/In-April-Day",
     icon: "github",
     color: "from-gray-700 to-gray-900",
   },

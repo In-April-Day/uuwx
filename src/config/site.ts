@@ -24,7 +24,7 @@ export const siteConfig = {
   language: "zh-CN", // 网站语言
   themeColor: "#4F46E5", // 主题色
   twitterHandle: "@hanmdsomeX", // Twitter账号
-  githubHandle: "acanyo", // GitHub账号
+  githubHandle: "In-April-Day", // GitHub账号
 
   // Schema.org 结构化数据
   organization: {
@@ -34,7 +34,7 @@ export const siteConfig = {
 
   // 社交媒体链接
   social: {
-    github: "https://github.com/acanyo", // GitHub主页
+    github: "https://github.com/In-April-Day", // GitHub主页
     email: "884738667@qq.com", // 联系邮箱
   },
 };
