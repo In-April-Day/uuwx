@@ -5,9 +5,13 @@ import { siteConfig } from "@/config/site";
 import PlanetOrbit from "@/components/PlanetOrbit.vue";
 import NebulaLoader from "@/components/NebulaLoader.vue";
 import PyramidLoader from "@/components/PyramidLoader.vue";
+import MarsEarthBackground from "@/components/MarsEarthBackground.vue";
 
 // 路由
 const router = useRouter();
+
+// 背景组件引用
+const earthBackgroundRef = ref<InstanceType<typeof MarsEarthBackground> | null>(null);
 
 // ==================== 背景层状态 ====================
 const scrollY = ref(0);
@@ -285,12 +289,25 @@ onUnmounted(() => {
   window.removeEventListener("click", triggerExplosion);
   cancelAnimationFrame(animationFrameId);
   clearInterval(dropIntervalId);
+  
+  // 销毁背景组件
+  if (earthBackgroundRef.value) {
+    earthBackgroundRef.value.destroy?.();
+  }
 });
 
 </script>
 
 <template>
   <div class="space-station-page" @click="triggerExplosion">
+    <!-- Mars3D 3D 地球背景层 -->
+    <MarsEarthBackground 
+      ref="earthBackgroundRef"
+      :auto-rotate="true"
+      :rotate-speed="0.003"
+      :opacity="0.8"
+    />
+    
     <div class="bg-layer">
       <div class="nebula-bg"></div>
       
@@ -705,17 +722,24 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
+  /* 添加渐变叠加，让 CSS 背景与 Mars3D 地球融合 */
+  background: linear-gradient(
+    180deg,
+    rgba(15, 12, 41, 0.85) 0%,
+    rgba(48, 43, 99, 0.7) 40%,
+    rgba(36, 36, 62, 0.6) 100%
+  );
 }
 
 .nebula-bg {
   position: absolute;
   inset: -50%;
   background: 
-    radial-gradient(ellipse at 20% 20%, rgba(168, 85, 247, 0.3) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 30%, rgba(236, 72, 153, 0.25) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%),
-    radial-gradient(ellipse at 30% 60%, rgba(16, 185, 129, 0.15) 0%, transparent 40%);
+    radial-gradient(ellipse at 20% 20%, rgba(168, 85, 247, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 30%, rgba(236, 72, 153, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 60%, rgba(16, 185, 129, 0.12) 0%, transparent 40%);
   animation: nebulaFlow 20s ease-in-out infinite;
 }
 
@@ -727,30 +751,34 @@ onUnmounted(() => {
 .mid-layer {
   position: absolute;
   inset: 0;
+  z-index: 1;
 }
 
 .floating-code {
   position: absolute;
   font-family: 'Courier New', monospace;
-  color: rgba(168, 85, 247, 0.6);
+  color: rgba(168, 85, 247, 0.5);
   animation: floatCode 8s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
 }
 
 @keyframes floatCode {
-  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.4; }
-  50% { transform: translateY(-8px) rotate(3deg); opacity: 0.6; }
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+  50% { transform: translateY(-8px) rotate(3deg); opacity: 0.5; }
 }
 
 .near-layer {
   position: absolute;
   inset: 0;
+  z-index: 2;
 }
 
 .geo-lines {
   position: absolute;
   width: 100%;
   height: 100%;
-  opacity: 0.15;
+  opacity: 0.12;
+  z-index: 1;
 }
 
 .geo-lines path {
@@ -762,13 +790,21 @@ onUnmounted(() => {
 .stars-container {
   position: absolute;
   inset: 0;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .star {
   position: absolute;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.7);
   border-radius: 50%;
   box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+  animation: starTwinkle 3s ease-in-out infinite;
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
 }
 
 /* ==================== 代码雨 ==================== */
@@ -776,7 +812,7 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
   overflow: hidden;
 }
 
@@ -784,9 +820,27 @@ onUnmounted(() => {
   position: absolute;
   font-family: 'Courier New', monospace;
   font-size: 14px;
-  color: rgba(168, 85, 247, 0.6);
-  text-shadow: 0 0 10px rgba(168, 85, 247, 0.5);
+  color: rgba(168, 85, 247, 0.5);
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.4), 0 0 20px rgba(168, 85, 247, 0.2);
   white-space: nowrap;
+  animation: codeDropFall 3s linear infinite;
+}
+
+@keyframes codeDropFall {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
 }
 
 /* ==================== 爆炸效果 ==================== */
