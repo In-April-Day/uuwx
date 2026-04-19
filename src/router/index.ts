@@ -30,45 +30,6 @@ const routes: RouteRecordRaw[] = [
     },
   },
   {
-    path: "/tools",
-    name: "tools",
-    component: () => import("@/views/ToolsView.vue"),
-    meta: {
-      title: "工具箱",
-      transition: "fade",
-    },
-    children: [
-      {
-        path: "json",
-        name: "json-formatter",
-        component: () => import("@/views/tools/JsonFormatterView.vue"),
-        meta: {
-          title: "JSON 格式化",
-          transition: "fade",
-        },
-      },
-      {
-        path: "bookmarks",
-        name: "bookmarks",
-        component: () => import("@/views/tools/BookmarksView.vue"),
-        meta: {
-          title: "网址导航",
-          transition: "fade",
-        },
-      },
-      {
-        path: "timestamp",
-        name: "timestamp",
-        component: () => import("@/views/tools/TimestampView.vue"),
-        meta: {
-          title: "时间戳转换",
-          transition: "fade",
-        },
-      },
-    ],
-  },
-
-  {
     path: "/contact",
     name: "contact",
     component: () => import("@/views/ContactView.vue"),

@@ -146,6 +146,15 @@ const handlePlanetClick = (name: string) => {
   }
 };
 
+// ==================== 行星悬停提示 ====================
+const hoveredPlanet = ref<string | null>(null);
+
+const planetLabels: Record<string, { name: string; hint: string }> = {
+  planet: { name: "项目展示", hint: "点击探索项目" },
+  nebula: { name: "联系方式", hint: "点击获取联系" },
+  pyramid: { name: "技能栈", hint: "点击查看技能" },
+};
+
 // ==================== 代码雨效果 ====================
 const codeDrops = ref<{ id: number; x: number; y: number; char: string; speed: number; opacity: number }[]>([]);
 let dropId = 0;
@@ -446,10 +455,19 @@ onUnmounted(() => {
             class="planet-item planet-1 cursor-pointer hover:scale-[1.5] transition-transform duration-300" 
             :style="planet1Style"
             @click="handlePlanetClick('planet')"
+            @mouseenter="hoveredPlanet = 'planet'"
+            @mouseleave="hoveredPlanet = null"
           >
             <div class="planet-sphere sphere-purple">
               <PlanetOrbit />
             </div>
+            <!-- 悬停提示 -->
+            <Transition name="tip-fade">
+              <div v-if="hoveredPlanet === 'planet'" class="planet-tooltip">
+                <span class="tooltip-name">{{ planetLabels.planet.name }}</span>
+                <span class="tooltip-hint">{{ planetLabels.planet.hint }}</span>
+              </div>
+            </Transition>
           </div>
 
           <!-- 行星2：NebulaLoader + 球形背景壳 -->
@@ -457,10 +475,19 @@ onUnmounted(() => {
             class="planet-item planet-2 cursor-pointer hover:scale-[1.5] transition-transform duration-300" 
             :style="planet2Style"
             @click="handlePlanetClick('nebula')"
+            @mouseenter="hoveredPlanet = 'nebula'"
+            @mouseleave="hoveredPlanet = null"
           >
             <div class="planet-sphere sphere-nebula">
               <NebulaLoader />
             </div>
+            <!-- 悬停提示 -->
+            <Transition name="tip-fade">
+              <div v-if="hoveredPlanet === 'nebula'" class="planet-tooltip">
+                <span class="tooltip-name">{{ planetLabels.nebula.name }}</span>
+                <span class="tooltip-hint">{{ planetLabels.nebula.hint }}</span>
+              </div>
+            </Transition>
           </div>
 
           <!-- 行星3：PyramidLoader + 球形背景壳 -->
@@ -468,10 +495,19 @@ onUnmounted(() => {
             class="planet-item planet-3 cursor-pointer hover:scale-[3] transition-transform duration-300" 
             :style="planet3Style"
             @click="handlePlanetClick('pyramid')"
+            @mouseenter="hoveredPlanet = 'pyramid'"
+            @mouseleave="hoveredPlanet = null"
           >
             <div class="planet-sphere sphere-gold">
               <PyramidLoader />
             </div>
+            <!-- 悬停提示 -->
+            <Transition name="tip-fade">
+              <div v-if="hoveredPlanet === 'pyramid'" class="planet-tooltip">
+                <span class="tooltip-name">{{ planetLabels.pyramid.name }}</span>
+                <span class="tooltip-hint">{{ planetLabels.pyramid.hint }}</span>
+              </div>
+            </Transition>
           </div>
         </div>
 
@@ -715,6 +751,63 @@ onUnmounted(() => {
 .planet-sphere > * {
   position: relative;
   z-index: 1;
+}
+
+/* ==================== 行星悬停提示 ==================== */
+.planet-tooltip {
+  position: absolute;
+  bottom: calc(100% + 15px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px;
+  background: rgba(15, 12, 41, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+}
+
+.planet-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: rgba(168, 85, 247, 0.4);
+}
+
+.tooltip-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tooltip-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 提示动画 */
+.tip-fade-enter-active,
+.tip-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.tip-fade-enter-from,
+.tip-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
 }
 
 /* ==================== 背景层 ==================== */

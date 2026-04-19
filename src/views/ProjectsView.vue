@@ -1,31 +1,14 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import PageTransition from "@/components/PageTransition.vue";
-import Tabs from "@/components/ui/Tabs.vue";
-import BookmarksView from "@/views/tools/BookmarksView.vue";
+import { ref } from "vue";
 import { projects } from "@/config/projects";
-import { tools } from "@/config/tools";
-import { tabs } from "@/config/navigation";
-
-const activeTab = ref("projects");
-const activeToolId = ref<number | null>(null);
 
 const projectsList = ref(projects);
-const toolsList = ref(tools);
-
-const activeTool = computed(() =>
-  toolsList.value.find((tool) => tool.id === activeToolId.value),
-);
-
-const showToolList = () => {
-  activeToolId.value = null;
-};
 
 // 加载状态
 const isLoading = ref(false);
 
 // 模拟加载效果
-const handleTabChange = async () => {
+const handleLoading = async () => {
   isLoading.value = true;
   await new Promise((resolve) => setTimeout(resolve, 300));
   isLoading.value = false;
@@ -40,20 +23,10 @@ const getTransitionDelay = (index: number) => `${index * 100}ms`;
     <h1
       class="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient"
     >
-      工具集
+      项目展示
     </h1>
 
     <div class="max-w-6xl mx-auto">
-      <!-- 标签页切换 -->
-      <div class="mb-6 md:mb-8">
-        <Tabs
-          v-model="activeTab"
-          :tabs="tabs"
-          class="justify-center max-w-md mx-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-full p-1.5 md:p-2 shadow-sm flex items-center gap-1.5 md:gap-2 text-sm md:text-base"
-          @update:modelValue="handleTabChange"
-        />
-      </div>
-
       <!-- 加载状态 -->
       <div
         v-if="isLoading"
@@ -64,204 +37,88 @@ const getTransitionDelay = (index: number) => `${index * 100}ms`;
         ></div>
       </div>
 
-      <template v-else>
-        <!-- 项目列表 -->
-        <TransitionGroup
-          v-show="activeTab === 'projects'"
-          name="list"
-          tag="div"
-          class="grid grid-cols-1 md:grid-cols-2 gap-8 px-4"
+      <!-- 项目列表 -->
+      <TransitionGroup
+        v-show="!isLoading"
+        name="list"
+        tag="div"
+        class="grid grid-cols-1 md:grid-cols-2 gap-8 px-4"
+      >
+        <article
+          v-for="(project, index) in projectsList"
+          :key="project.id"
+          :style="{ transitionDelay: getTransitionDelay(index) }"
+          class="group bg-white dark:bg-gray-800/90 rounded-xl shadow-lg overflow-hidden hover:shadow-xl dark:hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-2 relative dark:border dark:border-gray-700/50 dark:hover:glow-lg dark:hover:border-primary/30 flex flex-col animate-fade-in"
         >
-          <article
-            v-for="(project, index) in projectsList"
-            :key="project.id"
-            :style="{ transitionDelay: getTransitionDelay(index) }"
-            class="group bg-white dark:bg-gray-800/90 rounded-xl shadow-lg overflow-hidden hover:shadow-xl dark:hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-2 relative dark:border dark:border-gray-700/50 dark:hover:glow-lg dark:hover:border-primary/30 flex flex-col animate-fade-in"
-          >
-            <!-- 项目卡片悬停效果 -->
+          <!-- 项目卡片悬停效果 -->
+          <div
+            class="absolute inset-0 bg-primary/5 dark:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all duration-300 dark:group-hover:backdrop-blur-sm"
+          ></div>
+          <div class="relative h-56 overflow-hidden">
+            <img
+              :src="project.image"
+              :alt="project.title"
+              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            />
             <div
-              class="absolute inset-0 bg-primary/5 dark:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all duration-300 dark:group-hover:backdrop-blur-sm"
-            ></div>
-            <div class="relative h-56 overflow-hidden">
-              <img
-                :src="project.image"
-                :alt="project.title"
-                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-              />
-              <div
-                class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
-              >
-                <a
-                  v-if="project.link && project.status === 'completed'"
-                  :href="project.link"
-                  target="_blank"
-                  class="px-8 py-3 bg-white/20 hover:bg-white/30 rounded-full transition-all duration-300 text-white font-medium hover:scale-105 hover:shadow-lg backdrop-blur-sm"
-                >
-                  访问项目
-                </a>
-                <span
-                  v-if="project.status !== 'completed'"
-                  class="px-8 py-3 bg-white/20 rounded-full text-white backdrop-blur-sm"
-                >
-                  {{ project.status === "developing" ? "开发中" : "规划中" }}
-                </span>
-              </div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="text-xl font-semibold dark:text-gray-100">
-                  {{ project.title }}
-                </h3>
-                <span
-                  class="text-sm px-2 py-1 rounded"
-                  :class="{
-                    'bg-green-100/80 text-green-800 dark:bg-green-900/80 dark:text-green-100':
-                      project.status === 'completed',
-                    'bg-yellow-100/80 text-yellow-800 dark:bg-yellow-900/80 dark:text-yellow-100':
-                      project.status === 'developing',
-                    'bg-gray-100/80 text-gray-800 dark:bg-gray-900/80 dark:text-gray-100':
-                      project.status === 'planning',
-                  }"
-                >
-                  {{
-                    project.status === "completed"
-                      ? "已完成"
-                      : project.status === "developing"
-                        ? "开发中"
-                        : "规划中"
-                  }}
-                </span>
-              </div>
-              <p class="text-gray-600 dark:text-gray-400 mb-4 flex-1">
-                {{ project.description }}
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <span
-                  v-for="tag in project.tags"
-                  :key="tag"
-                  class="px-3 py-1 bg-primary-10 dark:bg-primary/10 text-primary dark:text-primary-light rounded-full text-sm font-medium hover:scale-105 transition-transform cursor-default"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </TransitionGroup>
-
-        <!-- 工具列表 -->
-        <TransitionGroup
-          v-show="activeTab === 'tools' && !activeToolId"
-          name="list"
-          tag="div"
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
-        >
-          <article
-            v-for="(tool, index) in toolsList"
-            :key="tool.id"
-            :style="{ transitionDelay: getTransitionDelay(index) }"
-            class="group bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 dark:border-gray-700/50"
-          >
-            <div class="relative h-40 md:h-48 overflow-hidden rounded-t-lg">
-              <img
-                :src="tool.image"
-                :alt="tool.title"
-                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div
-                class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
-              >
-                <button
-                  v-if="tool.status === 'completed'"
-                  @click="activeToolId = tool.id"
-                  class="px-6 py-2 md:px-8 md:py-3 bg-white/20 hover:bg-white/30 rounded-full transition-all duration-300 text-white text-sm md:text-base font-medium hover:scale-105 hover:shadow-lg backdrop-blur-sm"
-                >
-                  立即使用
-                </button>
-                <span
-                  v-else
-                  class="px-6 py-2 md:px-8 md:py-3 bg-white/20 rounded-full text-white backdrop-blur-sm text-sm md:text-base font-medium"
-                >
-                  {{ tool.status === "developing" ? "开发中" : "规划中" }}
-                </span>
-              </div>
-            </div>
-
-            <div class="p-4 md:p-5">
-              <div class="flex items-center justify-between mb-2">
-                <h3
-                  class="text-base md:text-lg font-medium text-gray-800 dark:text-gray-200"
-                >
-                  {{ tool.title }}
-                </h3>
-                <span
-                  class="text-xs md:text-sm px-2 py-1 rounded"
-                  :class="{
-                    'bg-green-100/80 text-green-800 dark:bg-green-900/80 dark:text-green-100':
-                      tool.status === 'completed',
-                    'bg-yellow-100/80 text-yellow-800 dark:bg-yellow-900/80 dark:text-yellow-100':
-                      tool.status === 'developing',
-                    'bg-gray-100/80 text-gray-800 dark:bg-gray-900/80 dark:text-gray-100':
-                      tool.status === 'planning',
-                  }"
-                >
-                  {{
-                    tool.status === "completed"
-                      ? "已完成"
-                      : tool.status === "developing"
-                        ? "开发中"
-                        : "规划中"
-                  }}
-                </span>
-              </div>
-              <p
-                class="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2"
-              >
-                {{ tool.description }}
-              </p>
-              <div class="flex flex-wrap gap-1.5">
-                <span
-                  v-for="tag in tool.tags"
-                  :key="tag"
-                  class="px-2 py-1 text-xs rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 shadow-sm hover:shadow hover:scale-105 hover:bg-primary hover:text-white dark:hover:bg-primary transition-all duration-300 cursor-default border border-gray-100 dark:border-gray-700/50"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </TransitionGroup>
-
-        <!-- 网址导航 -->
-        <div
-          v-show="activeTab === 'bookmarks'"
-          class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:p-6 animate-fade-in border border-gray-100 dark:border-gray-700"
-        >
-          <BookmarksView />
-        </div>
-
-        <!-- 工具详情页 -->
-        <div
-          v-if="activeTab === 'tools' && activeToolId"
-          class="relative bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:p-6 animate-fade-in border border-gray-100 dark:border-gray-700"
-        >
-          <!-- 返回按钮 -->
-          <div class="absolute left-0 transform -translate-y-full mb-2">
-            <button
-              @click="showToolList"
-              class="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base text-gray-600 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-x-2"
+              class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
             >
-              <span class="text-lg md:text-xl leading-none">←</span>
-              <span>返回工具列表</span>
-            </button>
+              <a
+                v-if="project.link && project.status === 'completed'"
+                :href="project.link"
+                target="_blank"
+                class="px-8 py-3 bg-white/20 hover:bg-white/30 rounded-full transition-all duration-300 text-white font-medium hover:scale-105 hover:shadow-lg backdrop-blur-sm"
+              >
+                访问项目
+              </a>
+              <span
+                v-if="project.status !== 'completed'"
+                class="px-8 py-3 bg-white/20 rounded-full text-white backdrop-blur-sm"
+              >
+                {{ project.status === "developing" ? "开发中" : "规划中" }}
+              </span>
+            </div>
           </div>
-
-          <component
-            v-if="activeTool?.component"
-            :is="activeTool.component"
-            class="animate-slide-up"
-          ></component>
-        </div>
-      </template>
+          <div class="p-6 flex-1 flex flex-col">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xl font-semibold dark:text-gray-100">
+                {{ project.title }}
+              </h3>
+              <span
+                class="text-sm px-2 py-1 rounded"
+                :class="{
+                  'bg-green-100/80 text-green-800 dark:bg-green-900/80 dark:text-green-100':
+                    project.status === 'completed',
+                  'bg-yellow-100/80 text-yellow-800 dark:bg-yellow-900/80 dark:text-yellow-100':
+                    project.status === 'developing',
+                  'bg-gray-100/80 text-gray-800 dark:bg-gray-900/80 dark:text-gray-100':
+                    project.status === 'planning',
+                }"
+              >
+                {{
+                  project.status === "completed"
+                    ? "已完成"
+                    : project.status === "developing"
+                      ? "开发中"
+                      : "规划中"
+                }}
+              </span>
+            </div>
+            <p class="text-gray-600 dark:text-gray-400 mb-4 flex-1">
+              {{ project.description }}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <span
+                v-for="tag in project.tags"
+                :key="tag"
+                class="px-3 py-1 bg-primary-10 dark:bg-primary/10 text-primary dark:text-primary-light rounded-full text-sm font-medium hover:scale-105 transition-transform cursor-default"
+              >
+                {{ tag }}
+              </span>
+            </div>
+          </div>
+        </article>
+      </TransitionGroup>
     </div>
   </div>
 </template>
@@ -296,18 +153,6 @@ const getTransitionDelay = (index: number) => `${index * 100}ms`;
   }
 }
 
-/* 向上滑入动画 */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* 渐变动画 */
 @keyframes gradient {
   0% {
@@ -328,10 +173,6 @@ const getTransitionDelay = (index: number) => `${index * 100}ms`;
 
 .animate-fade-in {
   animation: fadeIn 0.6s ease-out forwards;
-}
-
-.animate-slide-up {
-  animation: slideUp 0.5s ease-out forwards;
 }
 
 /* 加载动画 */
@@ -378,18 +219,6 @@ const getTransitionDelay = (index: number) => `${index * 100}ms`;
   z-index: 1;
 }
 
-/* 标签页切换动画 */
-.tab-enter-active,
-.tab-leave-active {
-  transition: all 0.5s ease-in-out;
-}
-
-.tab-enter-from,
-.tab-leave-to {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
 /* 加载动画优化 */
 .loader {
   box-shadow: 0 0 15px var(--color-primary/30);
@@ -404,11 +233,5 @@ const getTransitionDelay = (index: number) => `${index * 100}ms`;
       transparent 100%
     );
   }
-}
-
-/* 返回按钮容器样式 */
-.transform {
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
 }
 </style>
