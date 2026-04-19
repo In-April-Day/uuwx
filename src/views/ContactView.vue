@@ -1,297 +1,139 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import emailjs from "@emailjs/browser";
-import { emailConfig } from "@/config/email";
+import { siteConfig } from "@/config/site";
 
-interface FormData {
+interface ContactItem {
   name: string;
-  email: string;
-  subject: string;
-  message: string;
+  value: string;
+  href: string;
+  icon: string;
+  color: string;
 }
 
-const formData = ref<FormData>({
-  name: "",
-  email: "",
-  subject: "",
-  message: "",
-});
+const contactList = ref<ContactItem[]>([
+  {
+    name: "手机号",
+    value: "19831158485",
+    href: "tel:19831158485",
+    icon: "phone",
+    color: "from-green-500 to-emerald-500",
+  },
+  {
+    name: "邮箱",
+    value: "dk884738667@163.com",
+    href: "mailto:dk884738667@163.com",
+    icon: "email",
+    color: "from-rose-500 to-pink-500",
+  },
+  {
+    name: "GitHub",
+    value: siteConfig.githubHandle || "In-April-Day",
+    href: siteConfig.social.github || "https://github.com/In-April-Day",
+    icon: "github",
+    color: "from-gray-700 to-gray-900",
+  },
+]);
 
-const isSubmitting = ref(false);
-const submitStatus = ref<"success" | "error" | null>(null);
+const copiedItem = ref<string | null>(null);
 
-const validateEmail = (email: string) => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
-
-const handleSubmit = async () => {
-  submitStatus.value = null;
-
-  if (!formData.value.name.trim()) {
-    alert("请输入您的姓名");
-    return;
-  }
-  if (!formData.value.email.trim() || !validateEmail(formData.value.email)) {
-    alert("请输入有效的邮箱地址");
-    return;
-  }
-  if (!formData.value.message.trim()) {
-    alert("请输入留言内容");
-    return;
-  }
-
+const copyToClipboard = async (item: ContactItem) => {
   try {
-    isSubmitting.value = true;
-
-    const result = await emailjs.send(
-      emailConfig.serviceId,
-      emailConfig.templateId,
-      {
-        from_name: formData.value.name,
-        from_email: formData.value.email,
-        subject: formData.value.subject,
-        message: formData.value.message,
-        reply_to: formData.value.email,
-      },
-      emailConfig.publicKey,
-    );
-
-    submitStatus.value = "success";
-    formData.value = {
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-    };
-  } catch (error: any) {
-    submitStatus.value = "error";
-    alert(`发送失败: ${error.text || error.message || "请稍后重试"}`);
-  } finally {
-    isSubmitting.value = false;
+    await navigator.clipboard.writeText(item.value);
+    copiedItem.value = item.name;
+    setTimeout(() => {
+      copiedItem.value = null;
+    }, 2000);
+  } catch {
+    console.error("复制失败");
   }
-};
-
-// 添加跳转函数
-const goToGuestbook = () => {
-  window.open(import.meta.env.VITE_GUESTBOOK_URL, "_blank");
 };
 </script>
 
 <template>
   <div class="container mx-auto px-4 py-8 md:py-12">
     <div class="max-w-2xl mx-auto">
-      <h1
-        class="text-2xl md:text-3xl font-bold text-center mb-4 md:mb-8 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient"
-      >
-        联系我
-      </h1>
-      <p
-        class="text-sm md:text-base text-gray-600 dark:text-gray-300 text-center mb-6"
-      >
-        有任何问题或建议？请随时与我联系。
-      </p>
-
-      <!-- 留言板入口 -->
-      <div class="text-center mb-8 md:mb-12">
-        <p
-          class="text-sm md:text-base text-gray-600 dark:text-gray-300 mb-3 md:mb-4"
+      <!-- 标题区域 -->
+      <div class="text-center mb-10 md:mb-12">
+        <h1
+          class="text-2xl md:text-3xl font-bold mb-3 md:mb-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient"
         >
-          您也可以在留言板上留下您的想法
+          联系方式
+        </h1>
+        <p class="text-sm md:text-base text-gray-600 dark:text-gray-300">
+          期待与你的交流，欢迎通过以下方式联系我
         </p>
-        <button
-          @click="goToGuestbook"
-          class="inline-flex items-center px-5 py-2 md:px-6 md:py-2.5 text-sm md:text-base font-medium rounded-full text-white bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 ease-in-out transform hover:scale-105 shadow-sm"
-        >
-          <span class="mr-2">前往留言板</span>
-          <svg
-            class="w-4 h-4 md:w-5 md:h-5"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-              clip-rule="evenodd"
-            />
-          </svg>
-        </button>
       </div>
 
-      <!-- 表单部分 -->
-      <form
-        @submit.prevent="handleSubmit"
-        class="space-y-4 md:space-y-6 bg-white dark:bg-gray-800 rounded-lg md:rounded-xl shadow-sm p-4 md:p-8"
-      >
-        <!-- 表单字段 -->
-        <div class="space-y-4">
-          <div>
-            <label
-              for="name"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+      <!-- 联系方式卡片 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-10">
+        <div
+          v-for="item in contactList"
+          :key="item.name"
+          class="group bg-white dark:bg-gray-800 rounded-2xl p-5 md:p-6 shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-700"
+        >
+          <!-- 顶部：图标 + 名称 -->
+          <div class="flex items-center gap-3 mb-4">
+            <div
+              class="w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm"
+              :class="item.color"
             >
-              姓名 <span class="text-red-500">*</span>
-            </label>
-            <input
-              id="name"
-              v-model="formData.name"
-              type="text"
-              required
-              class="w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-colors"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div>
-            <label
-              for="email"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              邮箱 <span class="text-red-500">*</span>
-            </label>
-            <input
-              id="email"
-              v-model="formData.email"
-              type="email"
-              required
-              class="w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-colors"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div>
-            <label
-              for="subject"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              主题
-            </label>
-            <input
-              id="subject"
-              v-model="formData.subject"
-              type="text"
-              class="w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-colors"
-              :disabled="isSubmitting"
-            />
-          </div>
-
-          <div>
-            <label
-              for="message"
-              class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              留言 <span class="text-red-500">*</span>
-            </label>
-            <textarea
-              id="message"
-              v-model="formData.message"
-              rows="5"
-              required
-              class="w-full px-3 md:px-4 py-2 text-sm md:text-base rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-colors resize-none"
-              :disabled="isSubmitting"
-            ></textarea>
-          </div>
-        </div>
-
-        <!-- 提交按钮 -->
-        <div class="flex justify-center pt-2 md:pt-4">
-          <button
-            type="submit"
-            class="w-full md:w-auto inline-flex items-center justify-center px-6 py-2.5 md:px-8 md:py-3 text-sm md:text-base font-medium rounded-lg md:rounded-full text-white bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-sm"
-            :disabled="isSubmitting"
-          >
-            <span v-if="isSubmitting" class="flex items-center">
+              <!-- 手机 -->
               <svg
-                class="animate-spin -ml-1 mr-2 h-5 w-5"
+                v-if="item.icon === 'phone'"
+                class="w-6 h-6 text-white"
                 fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  stroke-width="4"
-                ></circle>
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
-              正在发送...
-            </span>
-            <span v-else class="flex items-center">
-              发送消息
+              <!-- 邮箱 -->
               <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 ml-2"
-                viewBox="0 0 20 20"
+                v-else-if="item.icon === 'email'"
+                class="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <!-- GitHub -->
+              <svg
+                v-else-if="item.icon === 'github'"
+                class="w-6 h-6 text-white"
+                viewBox="0 0 24 24"
                 fill="currentColor"
               >
-                <path
-                  d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"
-                />
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
               </svg>
-            </span>
-          </button>
-        </div>
-
-        <!-- 提交状态提示 -->
-        <transition
-          enter-active-class="transition duration-300 ease-out"
-          enter-from-class="transform -translate-y-2 opacity-0"
-          enter-to-class="transform translate-y-0 opacity-100"
-          leave-active-class="transition duration-200 ease-in"
-          leave-from-class="transform translate-y-0 opacity-100"
-          leave-to-class="transform -translate-y-2 opacity-0"
-        >
-          <div
-            v-if="submitStatus"
-            class="text-center py-2 md:py-3 px-4 md:px-6 rounded-lg mt-4 md:mt-6 text-sm md:text-base"
-            :class="{
-              'bg-green-50 text-green-800 dark:bg-green-900/50 dark:text-green-100':
-                submitStatus === 'success',
-              'bg-red-50 text-red-800 dark:bg-red-900/50 dark:text-red-100':
-                submitStatus === 'error',
-            }"
-          >
-            <div
-              class="flex items-center justify-center"
-              v-if="submitStatus === 'success'"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 mr-2 text-green-500"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <span>消息已发送，感谢您的反馈！我们将尽快与您联系。</span>
             </div>
-            <div class="flex items-center justify-center" v-else>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 mr-2 text-red-500"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <span>发送失败，请稍后重试。</span>
-            </div>
+            <span class="text-lg font-medium text-gray-700 dark:text-gray-200">{{ item.name }}</span>
           </div>
-        </transition>
-      </form>
+
+          <!-- 中间：联系方式 -->
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-4 truncate">{{ item.value }}</p>
+
+          <!-- 底部：操作按钮 -->
+          <div class="flex gap-2">
+            <a
+              :href="item.href"
+              target="_blank"
+              class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 transition-all duration-300 shadow-sm hover:shadow-md"
+            >
+              <span>访问</span>
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+              </svg>
+            </a>
+            <button
+              @click="copyToClipboard(item)"
+              class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            >
+              {{ copiedItem === item.name ? "已复制" : "复制" }}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -303,14 +145,8 @@ const goToGuestbook = () => {
 }
 
 @keyframes gradient {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 </style>

@@ -3,48 +3,44 @@ export interface Project {
   title: string;
   description: string;
   tags: string[];
-  image: string;
-  link?: string;
+  images: string[];
   status: "completed" | "developing" | "planning";
 }
 
 export const projects: Project[] = [
   {
-    id: 2,
-    title: "Handsome's Blog",
-    description:
-      "心若有所向往，何惧道阻且长。记录技术分享和生活感悟的个人博客。",
-    tags: ["技术分享", "Blog", "Markdown"],
-    image: "https://picsum.photos/800/600?random=3",
-    link: "https://www.mmm.sd",
-    status: "completed",
-  },
-  {
     id: 3,
-    title: "Status",
-    description: "服务状态监控页面，实时监控各项服务的运行状态。",
-    tags: ["监控", "服务状态", "实时数据"],
-    image: "https://picsum.photos/800/600?random=4",
-    link: "https://status.mmm.sd",
+    title: "自然灾害应急管理系统",
+    description: "为应对突发自然灾害而设计的应急管理系统，实现资源调度、人员疏散和数据分析。",
+    tags: ["Vue 3", "TypeScript", "管理系统"],
+    images: [
+      "/projects/disaster/1.png",
+      "/projects/disaster/2.png",
+      "/projects/disaster/3.png",
+      "/projects/disaster/4.png",
+    ],
     status: "completed",
   },
   {
-    id: 4,
-    title: "Umami Analytics",
-    description:
-      "开源、隐私友好的网站访问统计分析工具，提供详细的访问数据和洞察。",
-    tags: ["数据分析", "统计", "开源"],
-    image: "https://picsum.photos/800/600?random=5",
-    link: "https://umami.tvtvz.cn",
+    id: 1,
+    title: "植物大战僵尸",
+    description: "基于Unity开发的经典塔防游戏，玩家需要在草坪上布置各种植物来抵御僵尸的入侵。",
+    tags: ["Unity", "C#", "游戏开发"],
+    images: [
+      "/projects/plant/1.png",
+      "/projects/plant/2.png",
+    ],
     status: "completed",
   },
   {
-    id: 5,
-    title: "AList",
-    description: "支持多种存储的文件列表程序，提供统一的文件管理和访问接口。",
-    tags: ["文件管理", "存储", "云服务"],
-    image: "https://picsum.photos/800/600?random=6",
-    link: "https://alist.mmm.sd",
+    id: 2,
+    title: "皇室战争脚本",
+    description: "基于Python开发的皇室战争游戏辅助脚本，实现自动化的卡牌管理和对战策略。",
+    tags: ["Python", "游戏辅助", "自动化"],
+    images: [
+      "/projects/cr/1.png",
+      "/projects/cr/2.png",
+    ],
     status: "completed",
   },
 ];

@@ -1,1079 +1,1574 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
-import PageTransition from "@/components/PageTransition.vue";
-import { config } from "@/config";
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import { siteConfig } from "@/config/site";
+import PlanetOrbit from "@/components/PlanetOrbit.vue";
+import NebulaLoader from "@/components/NebulaLoader.vue";
+import PyramidLoader from "@/components/PyramidLoader.vue";
+import MarsEarthBackground from "@/components/MarsEarthBackground.vue";
 
-const titles = ref(["躺平", "逃避", "睡觉"]);
-const currentTitleIndex = ref(0);
-const isWaving = ref(false);
+// 路由
+const router = useRouter();
 
-const cardRef = ref<HTMLElement | null>(null);
-const glareRef = ref<HTMLElement | null>(null);
+// 背景组件引用
+const earthBackgroundRef = ref<InstanceType<typeof MarsEarthBackground> | null>(null);
 
-// 标题切换
-setInterval(() => {
-  currentTitleIndex.value = (currentTitleIndex.value + 1) % titles.value.length;
-}, 3000);
+// ==================== 背景层状态 ====================
+const scrollY = ref(0);
+const isLoaded = ref(false);
 
-// 自动触发挥手动画
-const startWaving = () => {
-  if (!isWaving.value) {
-    isWaving.value = true;
-    setTimeout(() => {
-      isWaving.value = false;
-    }, 1200);
-  }
+const handleScroll = () => {
+  scrollY.value = window.scrollY;
 };
 
-// 3D 卡片鼠标跟踪
-const handleMouseMove = (e: MouseEvent) => {
-  const card = cardRef.value;
-  const glare = glareRef.value;
-  if (!card) return;
+// ==================== 打字机效果 ====================
+const typewriterText = ref("");
+const fullText = "000001011111";
+let typeIndex = 0;
 
-  const rect = card.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  const centerX = rect.width / 2;
-  const centerY = rect.height / 2;
-
-  const rotateX = ((y - centerY) / centerY) * -12;
-  const rotateY = ((x - centerX) / centerX) * 12;
-
-  card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
-
-  if (glare) {
-    glare.style.background = `radial-gradient(circle at ${x}px ${y}px, rgba(255,255,255,0.25) 0%, transparent 50%)`;
-  }
-};
-
-const handleMouseLeave = () => {
-  const card = cardRef.value;
-  const glare = glareRef.value;
-  if (!card) return;
-
-  card.style.transform =
-    "perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)";
-  card.style.transition = "transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)";
-  if (glare) {
-    glare.style.background = "transparent";
-    glare.style.transition = "opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1)";
-  }
-
+const startTypewriter = () => {
   setTimeout(() => {
-    if (card) card.style.transition = "";
-    if (glare) glare.style.transition = "";
-  }, 600);
+    const interval = setInterval(() => {
+      if (typeIndex < fullText.length) {
+        typewriterText.value += fullText.charAt(typeIndex);
+        typeIndex++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 80);
+  }, 1000);
 };
 
-const handleMouseEnter = () => {
-  const card = cardRef.value;
-  const glare = glareRef.value;
-  if (card) card.style.transition = "";
-  if (glare) glare.style.transition = "";
+// ==================== 导航栏hover图标 ====================
+const navItems = [
+  { name: "首页", path: "/", icon: "🏠" },
+  { name: "项目", path: "/projects", icon: "💻" },
+  { name: "技能", path: "/skills", icon: "⚙️" },
+  { name: "联系", path: "/contact", icon: "📧" },
+];
+const hoveredNav = ref<string | null>(null);
+
+// ==================== 悬浮舱交互 ====================
+const capsuleRef = ref<HTMLElement | null>(null);
+const capsuleTilt = ref({ x: 0, y: 0 });
+
+const handleCapsuleMove = (e: MouseEvent) => {
+  if (!capsuleRef.value) return;
+  const rect = capsuleRef.value.getBoundingClientRect();
+  const x = (e.clientX - rect.left - rect.width / 2) / (rect.width / 2);
+  const y = (e.clientY - rect.top - rect.height / 2) / (rect.height / 2);
+  capsuleTilt.value = { x: -y * 15, y: x * 15 };
 };
 
+const handleCapsuleLeave = () => {
+  capsuleTilt.value = { x: 0, y: 0 };
+};
+
+// ==================== 行星公转系统 ====================
+// 公转元素配置：以火箭为圆心，固定轨道半径，半径大于火箭边界（约280px）
+// 三个元素均匀分布在不同轨道，只能在各自轨道上运行
+const orbitingPlanets = ref([
+  {
+    name: "planet",      // 行星轨道SVG - 最小轨道
+    angle: 0,            // 初始角度（度）
+    speed: 0.2,          // 公转速度（度/帧）- 较慢
+    radius: 720,         // 轨道半径（px）- 大于火箭边界
+    size: 100            // 球壳尺寸
+  },
+  {
+    name: "nebula",      // 星云旋转动画 - 中等轨道
+    angle: 150,          // 初始角度 - 间隔较远
+    speed: 0.2,         // 公转速度 - 中速
+    radius: 680,         // 轨道半径 - 中等
+    size: 110            // 球壳尺寸
+  },
+  {
+    name: "pyramid",     // 3D金字塔 - 最大轨道
+    angle: 300,          // 初始角度 - 均匀分布
+    speed: 0.2,          // 公转速度 - 最慢
+    radius: 740,         // 轨道半径 - 最大
+    size: 90             // 球壳尺寸
+  }
+]);
+
+// 计算属性：生成每个行星的样式
+const planet1Style = computed(() => {
+  const planet = orbitingPlanets.value[0];
+  const radian = (planet.angle * Math.PI) / 180;
+  const x = Math.cos(radian) * planet.radius;
+  const y = Math.sin(radian) * planet.radius;
+  return { transform: `translate(${x}px, ${y}px)` };
+});
+
+const planet2Style = computed(() => {
+  const planet = orbitingPlanets.value[1];
+  const radian = (planet.angle * Math.PI) / 180;
+  const x = Math.cos(radian) * planet.radius;
+  const y = Math.sin(radian) * planet.radius;
+  return { transform: `translate(${x}px, ${y}px)` };
+});
+
+const planet3Style = computed(() => {
+  const planet = orbitingPlanets.value[2];
+  const radian = (planet.angle * Math.PI) / 180;
+  const x = Math.cos(radian) * planet.radius;
+  const y = Math.sin(radian) * planet.radius;
+  return { transform: `translate(${x}px, ${y}px)` };
+});
+
+// 更新公转位置（每帧调用）
+const updateOrbitPositions = () => {
+  orbitingPlanets.value.forEach((planet: typeof orbitingPlanets.value[0]) => {
+    planet.angle = (planet.angle + planet.speed) % 360;
+  });
+};
+
+// ==================== 技能标签交互 ====================
+const skillTags = ["点击进入控制台"];
+
+// 点击跳转到控制台
+const scrollToConsole = () => {
+  const consoleSection = document.querySelector('.console-section');
+  if (consoleSection) {
+    consoleSection.scrollIntoView({ behavior: 'smooth' });
+  }
+};
+
+// ==================== 行星点击跳转 ====================
+const handlePlanetClick = (name: string) => {
+  const routes: Record<string, string> = {
+    planet: "/projects",   // 服务器模型 -> 项目
+    nebula: "/contact",    // 元素球 -> 联系
+    pyramid: "/skills",    // 金字塔 -> 技能
+  };
+  if (routes[name]) {
+    router.push(routes[name]);
+  }
+};
+
+// ==================== 行星悬停提示 ====================
+const hoveredPlanet = ref<string | null>(null);
+
+const planetLabels: Record<string, { name: string; hint: string }> = {
+  planet: { name: "项目展示", hint: "点击探索项目" },
+  nebula: { name: "联系方式", hint: "点击获取联系" },
+  pyramid: { name: "技能栈", hint: "点击查看技能" },
+};
+
+// ==================== 代码雨效果 ====================
+const codeDrops = ref<{ id: number; x: number; y: number; char: string; speed: number; opacity: number }[]>([]);
+let dropId = 0;
+
+const codeChars = [
+  "const", "let", "var", "function", "return", "class", "interface",
+  "import", "export", "from", "default", "async", "await", "try", "catch",
+  "if", "else", "for", "while", "switch", "case", "break", "continue",
+  "new", "this", "super", "extends", "implements",
+  "string", "number", "boolean", "void", "null", "undefined",
+  "any", "unknown", "never", "object", "Array", "Promise",
+  "{ }", "[ ]", "( )", "=>", "===>", "!==", "??", "?.", "::",
+  "// TODO", "/* */", "'''", '"""', "<<<", ">>>",
+  "Java", "Spring", "Boot", "Vue", "React", "TypeScript", "Node",
+  "MySQL", "Redis", "Docker", "Git", "Linux", "Nginx",
+  "0x00", "0xFF", "true", "false", "console", "log", "debug",
+  "fetch", "POST", "GET", "PUT", "DELETE", "HTTP", "API",
+  "npm", "pnpm", "yarn", "build", "deploy", "test", "lint",
+];
+
+const spawnCodeDrop = () => {
+  if (codeDrops.value.length < 40) {
+    const drop = {
+      id: dropId++,
+      x: Math.random() * window.innerWidth,
+      y: -20,
+      char: codeChars[Math.floor(Math.random() * codeChars.length)],
+      speed: 0.5 + Math.random() * 1,
+      opacity: 0.15 + Math.random() * 0.25,
+    };
+    codeDrops.value.push(drop);
+  }
+};
+
+const updateCodeDrops = () => {
+  const dropType = codeDrops.value[0];
+  codeDrops.value = codeDrops.value
+    .map((drop: typeof dropType) => ({
+      ...drop,
+      y: drop.y + drop.speed,
+    }))
+    .filter((drop: typeof dropType) => drop.y < window.innerHeight + 50);
+};
+
+const triggerExplosion = (e: MouseEvent) => {
+  return;
+};
+
+// ==================== 控制台交互 ====================
+const consoleInput = ref("");
+const consoleOutput = ref<string[]>([
+  "╔══════════════════════════════════════════════╗",
+  "║  🚀 欢迎来到个人空间站控制台 v2.0              ║",
+  "║  输入 help 查看可用命令                       ║",
+  "╚══════════════════════════════════════════════╝",
+  "",
+]);
+
+const availableCommands: { [key: string]: string | (() => void) } = {
+  help: `
+📋 可用命令：
+  whoami     - 查看个人信息
+  cat intro  - 查看个人简介
+  ls skills  - 查看技术栈列表
+  projects   - 查看项目页面
+  skills     - 查看技能详情
+  contact    - 查看联系方式
+  neofetch   - 显示系统信息
+  clear      - 清空控制台
+  `,
+  whoami: `👤 ${siteConfig.name} | ${siteConfig.title}`,
+  cat: "请使用完整命令，如: cat intro",
+  "cat intro": `📝 ${siteConfig.siteDescription}`,
+  "ls skills": `📂 skills/\n  ├── Java    ████████████░░ 90%\n  ├── Spring  ██████████░░░░ 85%\n  ├── Vue     ██████████░░░░ 80%\n  ├── MySQL   █████████░░░░░ 80%\n  ├── Redis   ████████░░░░░░ 75%\n  └── Docker  ████████░░░░░░ 75%`,
+  projects: "➜ 正在跳转项目页面...",
+  skills: "➜ 正在跳转技能页面...",
+  contact: "➜ 正在跳转联系页面...",
+  neofetch: `
+  ┌─────────────────────────────┐
+  │    OS: Code Universe v2.0   │
+  │    Host: ${siteConfig.name.padEnd(20)} │
+  │    Shell: Vue 3 + TS        │
+  │    Theme: Space Station      │
+  │    CPU: Creative Brain       │
+  │    Memory: 100% Passion      │
+  └─────────────────────────────┘`,
+  clear: "CLEAR",
+};
+
+const executeCommand = () => {
+  const cmd = consoleInput.value.trim().toLowerCase();
+  consoleOutput.value.push(`$ ${consoleInput.value}`);
+
+  if (cmd === "clear") {
+    consoleOutput.value = [];
+  } else if (cmd === "projects") {
+    consoleOutput.value.push("➜ 正在跳转项目页面...");
+    setTimeout(() => router.push("/projects"), 500);
+  } else if (cmd === "skills") {
+    consoleOutput.value.push("➜ 正在跳转技能页面...");
+    setTimeout(() => router.push("/skills"), 500);
+  } else if (cmd === "contact") {
+    consoleOutput.value.push("➜ 正在跳转联系页面...");
+    setTimeout(() => router.push("/contact"), 500);
+  } else if (availableCommands[cmd]) {
+    consoleOutput.value.push(availableCommands[cmd] as string);
+  } else if (cmd) {
+    consoleOutput.value.push(`❌ 未知命令: ${cmd}`);
+  }
+
+  consoleInput.value = "";
+};
+
+// ==================== 动画循环 ====================
+let animationFrameId: number;
+let dropIntervalId: number;
+
+const animate = () => {
+  updateCodeDrops();
+  updateOrbitPositions(); // 更新公转位置
+  animationFrameId = requestAnimationFrame(animate);
+};
+
+// ==================== 生命周期 ====================
 onMounted(() => {
-  const script = document.createElement("script");
-  script.setAttribute("type", "application/ld+json");
-  script.textContent = JSON.stringify(structuredData);
-  document.head.appendChild(script);
+  setTimeout(() => {
+    isLoaded.value = true;
+    startTypewriter();
+  }, 100);
 
-  setTimeout(startWaving, 500);
+  window.addEventListener("scroll", handleScroll, { passive: true });
+  window.addEventListener("click", triggerExplosion);
+
+  animate(); // 包含行星环绕动画
+
+  dropIntervalId = window.setInterval(spawnCodeDrop, 500);
 });
 
 onUnmounted(() => {
-  const card = cardRef.value;
-  if (card) {
-    card.removeEventListener("mousemove", handleMouseMove);
-    card.removeEventListener("mouseleave", handleMouseLeave);
-    card.removeEventListener("mouseenter", handleMouseEnter);
+  window.removeEventListener("scroll", handleScroll);
+  window.removeEventListener("click", triggerExplosion);
+  cancelAnimationFrame(animationFrameId);
+  clearInterval(dropIntervalId);
+
+  // 销毁背景组件
+  if (earthBackgroundRef.value) {
+    earthBackgroundRef.value.destroy?.();
   }
 });
 
-const structuredData = {
-  "@context": "https://schema.org",
-  "@type": "Person",
-  name: siteConfig.name,
-  url: config.siteUrl,
-  jobTitle: siteConfig.title,
-  description: siteConfig.siteDescription,
-};
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <section class="container mx-auto px-4 py-12 md:py-16">
-      <div class="max-w-3xl mx-auto flex flex-col items-center">
+  <div class="space-station-page" @click="triggerExplosion">
+    <!-- Mars3D 3D 地球背景层 -->
+    <MarsEarthBackground
+      ref="earthBackgroundRef"
+      :auto-rotate="true"
+      :rotate-speed="0.003"
+      :opacity="0.8"
+    />
 
-        <!-- 3D 背景板卡片 -->
-        <div
-          class="card-3d-wrapper noselect"
-          @mousemove="handleMouseMove"
-          @mouseleave="handleMouseLeave"
-          @mouseenter="handleMouseEnter"
+    <div class="bg-layer">
+      <div class="nebula-bg"></div>
+
+      <div class="mid-layer">
+        <span
+          v-for="i in 15"
+          :key="i"
+          class="floating-code"
+          :style="{
+            left: `${(i * 7) % 100}%`,
+            top: `${(i * 11) % 100}%`,
+            animationDelay: `${i * 0.3}s`,
+            opacity: 0.15 + (i % 3) * 0.05,
+            fontSize: `${0.8 + (i % 4) * 0.3}rem`
+          }"
         >
-          <div ref="cardRef" class="card-3d">
-            <div ref="glareRef" class="card-3d-glare"></div>
-            <div class="card-3d-border-glow"></div>
-            <div class="card-3d-content">
+          {{ ["{ }", "[ ]", "( )", "=>", "< />", "0x1A", "&&", "||", "++", "/* */"][i % 10] }}
+        </span>
+      </div>
 
-              <!-- Name -->
-              <PageTransition name="bounce">
-                <h1 class="card-3d-name">
-                  <span class="gradient-name">{{ siteConfig.name }}</span>
-                </h1>
-              </PageTransition>
+      <div class="near-layer">
+        <svg class="geo-lines" viewBox="0 0 1000 600" preserveAspectRatio="none">
+          <path d="M0,150 Q250,50 500,150 T1000,100" stroke="url(#lineGrad1)" />
+          <path d="M0,250 Q300,200 600,280 T1000,220" stroke="url(#lineGrad2)" />
+          <path d="M0,380 Q400,320 700,400 T1000,350" stroke="url(#lineGrad3)" />
+          <path d="M0,500 Q350,450 650,520 T1000,480" stroke="url(#lineGrad1)" />
+          <circle cx="200" cy="120" r="2" fill="#a855f7" opacity="0.4"/>
+          <circle cx="450" cy="180" r="1.5" fill="#ec4899" opacity="0.3"/>
+          <circle cx="700" cy="350" r="2" fill="#3b82f6" opacity="0.4"/>
+          <circle cx="850" cy="280" r="1.5" fill="#a855f7" opacity="0.3"/>
+          <defs>
+            <linearGradient id="lineGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#a855f7" stop-opacity="0.5"/>
+              <stop offset="50%" stop-color="#ec4899" stop-opacity="0.3"/>
+              <stop offset="100%" stop-color="#a855f7" stop-opacity="0.5"/>
+            </linearGradient>
+            <linearGradient id="lineGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ec4899" stop-opacity="0.4"/>
+              <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.2"/>
+              <stop offset="100%" stop-color="#ec4899" stop-opacity="0.4"/>
+            </linearGradient>
+            <linearGradient id="lineGrad3" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"/>
+              <stop offset="50%" stop-color="#a855f7" stop-opacity="0.2"/>
+              <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.3"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
 
-              <!-- 躺平等 -->
-              <div class="card-3d-titles">
-                <transition name="fade" mode="out-in">
-                  <p
-                    :key="currentTitleIndex"
-                    class="card-3d-title-text"
-                  >
-                    {{ titles[currentTitleIndex] }}
-                  </p>
-                </transition>
+      <div class="stars-container">
+        <div
+          v-for="i in 20"
+          :key="i"
+          class="star"
+          :class="{ 'star-bright': i % 3 === 0 }"
+          :style="{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            animationDelay: `${Math.random() * 15}s`,
+            animationDuration: `${100 + Math.random() * 5}s`
+          }"
+        ></div>
+      </div>
+    </div>
+
+    <div class="code-rain">
+      <div
+        v-for="drop in codeDrops"
+        :key="drop.id"
+        class="code-drop"
+        :style="{
+          left: `${drop.x}px`,
+          top: `${drop.y}px`,
+          opacity: drop.opacity
+        }"
+      >
+        {{ drop.char }}
+      </div>
+    </div>
+
+    <div
+      v-for="exp in explosions"
+      :key="exp.id"
+      class="explosion"
+    >
+      <div
+        v-for="(p, idx) in exp.particles"
+        :key="idx"
+        class="explosion-particle"
+        :style="{
+          left: `${exp.x}px`,
+          top: `${exp.y}px`,
+          '--dx': `${p.dx}px`,
+          '--dy': `${p.dy}px`
+        }"
+      ></div>
+    </div>
+
+    <div class="main-content" :class="{ loaded: isLoaded }">
+
+      <nav class="glass-nav" :class="{ scrolled: scrollY > 50 }">
+        <div class="nav-inner">
+          <router-link to="/" class="ascii-logo">
+            <span class="logo-text">
+              <span v-for="(char, idx) in 'HANDSOME'" :key="idx"
+                :style="{ animationDelay: `${idx * 0.1}s` }"
+                class="logo-char"
+              >{{ char }}</span>
+            </span>
+            <span class="logo-glow"></span>
+          </router-link>
+
+          <div class="nav-items">
+            <router-link
+              v-for="item in navItems"
+              :key="item.path"
+              :to="item.path"
+              class="nav-item"
+              @mouseenter="hoveredNav = item.name"
+              @mouseleave="hoveredNav = null"
+            >
+              <span class="nav-icon">{{ hoveredNav === item.name ? item.icon : '' }}</span>
+              <span class="nav-text">{{ item.name }}</span>
+              <span class="nav-underline"></span>
+            </router-link>
+          </div>
+        </div>
+      </nav>
+
+      <section class="hero-section">
+        <!-- 行星环绕容器 -->
+        <div class="planets-container">
+          <!-- 行星1：PlanetOrbit + 球形背景壳 -->
+          <div
+            class="planet-item planet-1 cursor-pointer hover:scale-[1.5] transition-transform duration-300"
+            :style="planet1Style"
+            @click="handlePlanetClick('planet')"
+            @mouseenter="hoveredPlanet = 'planet'"
+            @mouseleave="hoveredPlanet = null"
+          >
+            <div class="planet-sphere sphere-purple">
+              <PlanetOrbit />
+            </div>
+            <!-- 悬停提示 -->
+            <Transition name="tip-fade">
+              <div v-if="hoveredPlanet === 'planet'" class="planet-tooltip">
+                <span class="tooltip-name">{{ planetLabels.planet.name }}</span>
+                <span class="tooltip-hint">{{ planetLabels.planet.hint }}</span>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- 行星2：NebulaLoader + 球形背景壳 -->
+          <div
+            class="planet-item planet-2 cursor-pointer hover:scale-[1.5] transition-transform duration-300"
+            :style="planet2Style"
+            @click="handlePlanetClick('nebula')"
+            @mouseenter="hoveredPlanet = 'nebula'"
+            @mouseleave="hoveredPlanet = null"
+          >
+            <div class="planet-sphere sphere-nebula">
+              <NebulaLoader />
+            </div>
+            <!-- 悬停提示 -->
+            <Transition name="tip-fade">
+              <div v-if="hoveredPlanet === 'nebula'" class="planet-tooltip">
+                <span class="tooltip-name">{{ planetLabels.nebula.name }}</span>
+                <span class="tooltip-hint">{{ planetLabels.nebula.hint }}</span>
+              </div>
+            </Transition>
+          </div>
+
+          <!-- 行星3：PyramidLoader + 球形背景壳 -->
+          <div
+            class="planet-item planet-3 cursor-pointer hover:scale-[3] transition-transform duration-300"
+            :style="planet3Style"
+            @click="handlePlanetClick('pyramid')"
+            @mouseenter="hoveredPlanet = 'pyramid'"
+            @mouseleave="hoveredPlanet = null"
+          >
+            <div class="planet-sphere sphere-gold">
+              <PyramidLoader />
+            </div>
+            <!-- 悬停提示 -->
+            <Transition name="tip-fade">
+              <div v-if="hoveredPlanet === 'pyramid'" class="planet-tooltip">
+                <span class="tooltip-name">{{ planetLabels.pyramid.name }}</span>
+                <span class="tooltip-hint">{{ planetLabels.pyramid.hint }}</span>
+              </div>
+            </Transition>
+          </div>
+        </div>
+
+        <!-- 中心火箭 -->
+        <div class="capsule-wrapper">
+          <div
+            ref="capsuleRef"
+            class="rocket-capsule"
+            :style="{
+              transform: `perspective(1000px) rotateX(${capsuleTilt.x}deg) rotateY(${capsuleTilt.y}deg) scale3d(${capsuleTilt.x === 0 && capsuleTilt.y === 0 ? 1 : 0.97}, ${capsuleTilt.x === 0 && capsuleTilt.y === 0 ? 1 : 0.97}, 1)`,
+              transition: capsuleTilt.x === 0 && capsuleTilt.y === 0 ? 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'transform 0.15s ease-out'
+            }"
+            @mousemove="handleCapsuleMove"
+            @mouseleave="handleCapsuleLeave"
+          >
+            <div class="rocket-nose">
+              <div class="cone-wrapper">
+                <div class="cone-body"></div>
+              </div>
+            </div>
+
+            <div class="rocket-body">
+              <div class="avatar-section">
+                <div class="avatar-wrapper">
+                  <img
+                    src="https://q.qlogo.cn/headimg_dl?dst_uin=884738667&spec=640&img_type=jpg"
+                    alt="头像"
+                    class="avatar-img"
+                  />
+                  <div class="avatar-ring ring-1"></div>
+                  <div class="avatar-ring ring-2"></div>
+                </div>
               </div>
 
-              <!-- 技能标签 -->
-              <PageTransition name="scale">
-                <div class="card-3d-skills">
-                  <span
-                    v-for="skill in siteConfig.skills"
+              <div class="profile-section">
+                <h1 class="profile-name">{{ siteConfig.name }}</h1>
+                <p class="typewriter-text">{{ typewriterText }}<span class="cursor">|</span></p>
+
+                <div class="skill-tags">
+                  <button
+                    v-for="skill in skillTags"
                     :key="skill"
-                    class="card-3d-skill-tag"
+                    class="skill-tag"
+                    @click="scrollToConsole"
                   >
                     {{ skill }}
-                  </span>
+                  </button>
                 </div>
-              </PageTransition>
+              </div>
+            </div>
 
+            <div class="rocket-flames">
+              <div class="flame flame-1"></div>
+              <div class="flame flame-2"></div>
+              <div class="flame flame-3"></div>
+            </div>
+
+            <div class="rocket-fins">
+              <div class="fin fin-left"></div>
+              <div class="fin fin-right"></div>
+              <div class="fin fin-back"></div>
             </div>
           </div>
         </div>
+      </section>
 
-        <!-- 卡片下方：头像 + SVG -->
-        <div class="flex items-center justify-center gap-2 -mt-8 relative z-10">
-          <div class="relative inline-block avatar-container">
-            <img
-              src="https://q.qlogo.cn/headimg_dl?dst_uin=884738667&spec=640&img_type=jpg"
-              alt="头像"
-              class="w-24 h-24 md:w-32 md:h-32 rounded-full shadow-xl border-4 border-white dark:border-gray-700 transition-all duration-300 avatar"
-            />
-            <div class="glow-effect"></div>
-            <div class="halo-effect"></div>
-            <div class="rotating-border"></div>
+      <section class="console-section">
+        <div class="terminal-window">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <span class="terminal-title">user@space-station:~$</span>
           </div>
-          <div class="pyramid-loader">
-            <div class="pyramid-wrapper">
-              <span class="pyramid-side s1"></span>
-              <span class="pyramid-side s2"></span>
-              <span class="pyramid-side s3"></span>
-              <span class="pyramid-side s4"></span>
-              <span class="pyramid-shadow"></span>
+
+          <div class="terminal-body">
+            <div class="console-output">
+              <p v-for="(line, idx) in consoleOutput" :key="idx" class="console-line">
+                {{ line }}
+              </p>
+            </div>
+
+            <div class="console-input-line">
+              <span class="prompt">➜</span>
+              <input
+                v-model="consoleInput"
+                type="text"
+                class="console-input"
+                placeholder="输入命令..."
+                @keyup.enter="executeCommand"
+              />
             </div>
           </div>
-          <div class="liquid-loader">
-            <svg width="100" height="100" viewBox="0 0 100 100">
-              <defs>
-                <mask id="clipping">
-                  <polygon points="0,0 100,0 100,100 0,100" fill="black"></polygon>
-                  <polygon points="25,25 75,25 50,75" fill="white"></polygon>
-                  <polygon points="50,25 75,75 25,75" fill="white"></polygon>
-                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
-                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
-                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
-                  <polygon points="35,35 65,35 50,65" fill="white"></polygon>
-                </mask>
-              </defs>
-            </svg>
-            <div class="liquid-box"></div>
-          </div>
-          <svg
-            id="svg-global"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 94 136"
-            height="136"
-            width="94"
-          >
-            <path
-              stroke="#4B22B5"
-              d="M87.3629 108.433L49.1073 85.3765C47.846 84.6163 45.8009 84.6163 44.5395 85.3765L6.28392 108.433C5.02255 109.194 5.02255 110.426 6.28392 111.187L44.5395 134.243C45.8009 135.004 47.846 135.004 49.1073 134.243L87.3629 111.187C88.6243 110.426 88.6243 109.194 87.3629 108.433Z"
-              id="line-v1"
-            ></path>
-            <path
-              stroke="#5728CC"
-              d="M91.0928 95.699L49.2899 70.5042C47.9116 69.6734 45.6769 69.6734 44.2986 70.5042L2.49568 95.699C1.11735 96.5298 1.11735 97.8767 2.49568 98.7074L44.2986 123.902C45.6769 124.733 47.9116 124.733 49.2899 123.902L91.0928 98.7074C92.4712 97.8767 92.4712 96.5298 91.0928 95.699Z"
-              id="line-v2"
-            ></path>
-            <g id="node-server">
-              <path
-                fill="url(#paint0_linear_204_217)"
-                d="M2.48637 72.0059L43.8699 96.9428C45.742 98.0709 48.281 97.8084 50.9284 96.2133L91.4607 71.7833C92.1444 71.2621 92.4197 70.9139 92.5421 70.1257V86.1368C92.5421 86.9686 92.0025 87.9681 91.3123 88.3825C84.502 92.4724 51.6503 112.204 50.0363 113.215C48.2352 114.343 45.3534 114.343 43.5523 113.215C41.9261 112.197 8.55699 91.8662 2.08967 87.926C1.39197 87.5011 1.00946 86.5986 1.00946 85.4058V70.1257C1.11219 70.9289 1.49685 71.3298 2.48637 72.0059Z"
-              ></path>
-              <path
-                stroke="url(#paint2_linear_204_217)"
-                fill="url(#paint1_linear_204_217)"
-                d="M91.0928 68.7324L49.2899 43.5375C47.9116 42.7068 45.6769 42.7068 44.2986 43.5375L2.49568 68.7324C1.11735 69.5631 1.11735 70.91 2.49568 71.7407L44.2986 96.9356C45.6769 97.7663 47.9116 97.7663 49.2899 96.9356L91.0928 71.7407C92.4712 70.91 92.4712 69.5631 91.0928 68.7324Z"
-              ></path>
-              <mask
-                height="41"
-                width="67"
-                y="50"
-                x="13"
-                maskUnits="userSpaceOnUse"
-                style="mask-type: luminance"
-                id="mask0_204_217"
-              >
-                <path
-                  fill="white"
-                  d="M78.3486 68.7324L49.0242 51.0584C47.6459 50.2276 45.4111 50.2276 44.0328 51.0584L14.7084 68.7324C13.3301 69.5631 13.3301 70.91 14.7084 71.7407L44.0328 89.4148C45.4111 90.2455 47.6459 90.2455 49.0242 89.4148L78.3486 71.7407C79.7269 70.91 79.727 69.5631 78.3486 68.7324Z"
-                ></path>
-              </mask>
-              <g mask="url(#mask0_204_217)">
-                <path
-                  fill="#332C94"
-                  d="M78.3486 68.7324L49.0242 51.0584C47.6459 50.2276 45.4111 50.2276 44.0328 51.0584L14.7084 68.7324C13.3301 69.5631 13.3301 70.91 14.7084 71.7407L44.0328 89.4148C45.4111 90.2455 47.6459 90.2455 49.0242 89.4148L78.3486 71.7407C79.7269 70.91 79.727 69.5631 78.3486 68.7324Z"
-                ></path>
-                <mask
-                  height="29"
-                  width="48"
-                  y="56"
-                  x="23"
-                  maskUnits="userSpaceOnUse"
-                  style="mask-type: luminance"
-                  id="mask1_204_217"
-                >
-                  <path
-                    fill="white"
-                    d="M68.9898 68.7324L49.0242 56.699C47.6459 55.8683 45.4111 55.8683 44.0328 56.699L24.0673 68.7324C22.6889 69.5631 22.6889 70.91 24.0673 71.7407L44.0328 83.7741C45.4111 84.6048 47.6459 84.6048 49.0242 83.7741L68.9898 71.7407C70.3681 70.91 70.3681 69.5631 68.9898 68.7324Z"
-                  ></path>
-                </mask>
-                <g mask="url(#mask1_204_217)">
-                  <path
-                    fill="#5E5E5E"
-                    d="M68.9898 68.7324L49.0242 56.699C47.6459 55.8683 45.4111 55.8683 44.0328 56.699L24.0673 68.7324C22.6889 69.5631 22.6889 70.91 24.0673 71.7407L44.0328 83.7741C45.4111 84.6048 47.6459 84.6048 49.0242 83.7741L68.9898 71.7407C70.3681 70.91 70.3681 69.5631 68.9898 68.7324Z"
-                  ></path>
-                  <path
-                    fill="#71B1C6"
-                    d="M70.1311 69.3884L48.42 56.303C47.3863 55.6799 45.7103 55.6799 44.6765 56.303L22.5275 69.6523C21.4938 70.2754 21.4938 71.2855 22.5275 71.9086L44.2386 84.994C45.2723 85.617 46.9484 85.617 47.9821 84.994L70.1311 71.6446C71.1648 71.0216 71.1648 70.0114 70.1311 69.3884Z"
-                  ></path>
-                  <path
-                    fill="#80C0D4"
-                    d="M70.131 70.8923L48.4199 57.8069C47.3862 57.1839 45.7101 57.1839 44.6764 57.8069L22.5274 71.1562C21.4937 71.7793 21.4937 72.7894 22.5274 73.4125L44.2385 86.4979C45.2722 87.1209 46.9482 87.1209 47.982 86.4979L70.131 73.1486C71.1647 72.5255 71.1647 71.5153 70.131 70.8923Z"
-                  ></path>
-                  <path
-                    fill="#89D3EB"
-                    d="M69.751 72.1675L48.4199 59.3111C47.3862 58.6881 45.7101 58.6881 44.6764 59.3111L23.2004 72.2548C22.1667 72.8779 22.1667 73.888 23.2004 74.5111L44.5315 87.3674C45.5653 87.9905 47.2413 87.9905 48.2751 87.3674L69.751 74.4238C70.7847 73.8007 70.7847 72.7905 69.751 72.1675Z"
-                  ></path>
-                  <path
-                    fill="#97E6FF"
-                    d="M68.5091 72.9231L48.4199 60.8153C47.3862 60.1922 45.7101 60.1922 44.6764 60.8153L24.8146 72.7861C23.7808 73.4091 23.7808 74.4193 24.8146 75.0424L44.9038 87.1502C45.9375 87.7733 47.6135 87.7733 48.6473 87.1502L68.5091 75.1794C69.5428 74.5563 69.5428 73.5462 68.5091 72.9231Z"
-                  ></path>
-                  <path
-                    fill="#97E6FF"
-                    d="M66.6747 73.3219L48.4199 62.3197C47.3862 61.6966 45.7101 61.6966 44.6764 62.3197L26.4412 73.3101C25.4075 73.9332 25.4075 74.9433 26.4412 75.5664L44.696 86.5686C45.7297 87.1917 47.4058 87.1917 48.4395 86.5686L66.6747 75.5782C67.7084 74.9551 67.7084 73.945 66.6747 73.3219Z"
-                  ></path>
-                </g>
-                <path
-                  stroke-width="0.5"
-                  stroke="#F4F4F4"
-                  d="M68.9898 68.7324L49.0242 56.699C47.6459 55.8683 45.4111 55.8683 44.0328 56.699L24.0673 68.7324C22.6889 69.5631 22.6889 70.91 24.0673 71.7407L44.0328 83.7741C45.4111 84.6048 47.6459 84.6048 49.0242 83.7741L68.9898 71.7407C70.3681 70.91 70.3681 69.5631 68.9898 68.7324Z"
-                ></path>
-              </g>
-            </g>
-            <g id="particles">
-              <path
-                fill="url(#paint3_linear_204_217)"
-                d="M43.5482 32.558C44.5429 32.558 45.3493 31.7162 45.3493 30.6778C45.3493 29.6394 44.5429 28.7976 43.5482 28.7976C42.5535 28.7976 41.7471 29.6394 41.7471 30.6778C41.7471 31.7162 42.5535 32.558 43.5482 32.558Z"
-                class="particle p1"
-              ></path>
-              <path
-                fill="url(#paint4_linear_204_217)"
-                d="M50.0323 48.3519C51.027 48.3519 51.8334 47.5101 51.8334 46.4717C51.8334 45.4333 51.027 44.5915 50.0323 44.5915C49.0375 44.5915 48.2311 45.4333 48.2311 46.4717C48.2311 47.5101 49.0375 48.3519 50.0323 48.3519Z"
-                class="particle p2"
-              ></path>
-              <path
-                fill="url(#paint5_linear_204_217)"
-                d="M40.3062 62.6416C41.102 62.6416 41.7471 61.9681 41.7471 61.1374C41.7471 60.3067 41.102 59.6332 40.3062 59.6332C39.5104 59.6332 38.8653 60.3067 38.8653 61.1374C38.8653 61.9681 39.5104 62.6416 40.3062 62.6416Z"
-                class="particle p3"
-              ></path>
-              <path
-                fill="url(#paint6_linear_204_217)"
-                d="M50.7527 73.9229C52.1453 73.9229 53.2743 72.7444 53.2743 71.2906C53.2743 69.8368 52.1453 68.6583 50.7527 68.6583C49.3601 68.6583 48.2311 69.8368 48.2311 71.2906C48.2311 72.7444 49.3601 73.9229 50.7527 73.9229Z"
-                class="particle p4"
-              ></path>
-              <path
-                fill="url(#paint7_linear_204_217)"
-                d="M48.5913 76.9312C49.1882 76.9312 49.672 76.4262 49.672 75.8031C49.672 75.1801 49.1882 74.675 48.5913 74.675C47.9945 74.675 47.5107 75.1801 47.5107 75.8031C47.5107 76.4262 47.9945 76.9312 48.5913 76.9312Z"
-                class="particle p5"
-              ></path>
-              <path
-                fill="url(#paint8_linear_204_217)"
-                d="M52.9153 67.1541C53.115 67.1541 53.2768 66.9858 53.2768 66.7781C53.2768 66.5704 53.115 66.402 52.9153 66.402C52.7156 66.402 52.5538 66.5704 52.5538 66.7781C52.5538 66.9858 52.7156 67.1541 52.9153 67.1541Z"
-                class="particle p6"
-              ></path>
-              <path
-                fill="url(#paint9_linear_204_217)"
-                d="M52.1936 43.8394C52.7904 43.8394 53.2743 43.3344 53.2743 42.7113C53.2743 42.0883 52.7904 41.5832 52.1936 41.5832C51.5967 41.5832 51.1129 42.0883 51.1129 42.7113C51.1129 43.3344 51.5967 43.8394 52.1936 43.8394Z"
-                class="particle p7"
-              ></path>
-              <path
-                fill="url(#paint10_linear_204_217)"
-                d="M57.2367 29.5497C57.8335 29.5497 58.3173 29.0446 58.3173 28.4216C58.3173 27.7985 57.8335 27.2935 57.2367 27.2935C56.6398 27.2935 56.156 27.7985 56.156 28.4216C56.156 29.0446 56.6398 29.5497 57.2367 29.5497Z"
-                class="particle p8"
-              ></path>
-              <path
-                fill="url(#paint11_linear_204_217)"
-                d="M43.9084 34.8144C44.3063 34.8144 44.6289 34.4777 44.6289 34.0623C44.6289 33.647 44.3063 33.3102 43.9084 33.3102C43.5105 33.3102 43.188 33.647 43.188 34.0623C43.188 34.4777 43.5105 34.8144 43.9084 34.8144Z"
-                class="particle p9"
-              ></path>
-            </g>
-            <g id="reflectores">
-              <path
-                fill-opacity="0.2"
-                fill="url(#paint12_linear_204_217)"
-                d="M49.2037 57.0009L68.7638 68.7786C69.6763 69.3089 69.7967 69.9684 69.794 70.1625V13.7383C69.7649 13.5587 69.6807 13.4657 69.4338 13.3096L48.4832 0.601307C46.9202 -0.192595 46.0788 -0.208238 44.6446 0.601307L23.6855 13.2118C23.1956 13.5876 23.1966 13.7637 23.1956 14.4904L23.246 70.1625C23.2948 69.4916 23.7327 69.0697 25.1768 68.2447L43.9084 57.0008C44.8268 56.4344 45.3776 56.2639 46.43 56.2487C47.5299 56.2257 48.1356 56.4222 49.2037 57.0009Z"
-              ></path>
-              <path
-                fill-opacity="0.2"
-                fill="url(#paint13_linear_204_217)"
-                d="M48.8867 27.6696C49.9674 26.9175 68.6774 14.9197 68.6774 14.9197C69.3063 14.5327 69.7089 14.375 69.7796 13.756V70.1979C69.7775 70.8816 69.505 71.208 68.7422 71.7322L48.9299 83.6603C48.2003 84.1258 47.6732 84.2687 46.5103 84.2995C45.3295 84.2679 44.8074 84.1213 44.0907 83.6603L24.4348 71.8149C23.5828 71.3313 23.2369 71.0094 23.2316 70.1979L23.1884 13.9816C23.1798 14.8398 23.4982 15.3037 24.7518 16.0874C24.7518 16.0874 42.7629 26.9175 44.2038 27.6696C45.6447 28.4217 46.0049 28.4217 46.5452 28.4217C47.0856 28.4217 47.806 28.4217 48.8867 27.6696Z"
-              ></path>
-            </g>
-            <g id="panel-rigth">
-              <mask fill="white" id="path-26-inside-1_204_217">
-                <path
-                  d="M72 91.8323C72 90.5121 72.9268 88.9068 74.0702 88.2467L87.9298 80.2448C89.0731 79.5847 90 80.1198 90 81.44V81.44C90 82.7602 89.0732 84.3656 87.9298 85.0257L74.0702 93.0275C72.9268 93.6876 72 93.1525 72 91.8323V91.8323Z"
-                ></path>
-              </mask>
-              <path
-                fill="#91DDFB"
-                d="M72 91.8323C72 90.5121 72.9268 88.9068 74.0702 88.2467L87.9298 80.2448C89.0731 79.5847 90 80.1198 90 81.44V81.44C90 82.7602 89.0732 84.3656 87.9298 85.0257L74.0702 93.0275C72.9268 93.6876 72 93.1525 72 91.8323V91.8323Z"
-              ></path>
-              <path
-                mask="url(#path-26-inside-1_204_217)"
-                fill="#489CB7"
-                d="M72 89.4419L90 79.0496L72 89.4419ZM90.6928 81.44C90.6928 82.9811 89.6109 84.8551 88.2762 85.6257L74.763 93.4275C73.237 94.3085 72 93.5943 72 91.8323V91.8323C72 92.7107 72.9268 92.8876 74.0702 92.2275L87.9298 84.2257C88.6905 83.7865 89.3072 82.7184 89.3072 81.84L90.6928 81.44ZM72 94.2227V89.4419V94.2227ZM88.2762 80.0448C89.6109 79.2742 90.6928 79.8989 90.6928 81.44V81.44C90.6928 82.9811 89.6109 84.8551 88.2762 85.6257L87.9298 84.2257C88.6905 83.7865 89.3072 82.7184 89.3072 81.84V81.84C89.3072 80.5198 88.6905 79.8056 87.9298 80.2448L88.2762 80.0448Z"
-              ></path>
-              <mask fill="white" id="path-28-inside-2_204_217">
-                <path
-                  d="M67 94.6603C67 93.3848 67.8954 91.8339 69 91.1962V91.1962C70.1046 90.5584 71 91.0754 71 92.3509V92.5129C71 93.7884 70.1046 95.3393 69 95.977V95.977C67.8954 96.6147 67 96.0978 67 94.8223V94.6603Z"
-                ></path>
-              </mask>
-              <path
-                fill="#91DDFB"
-                d="M67 94.6603C67 93.3848 67.8954 91.8339 69 91.1962V91.1962C70.1046 90.5584 71 91.0754 71 92.3509V92.5129C71 93.7884 70.1046 95.3393 69 95.977V95.977C67.8954 96.6147 67 96.0978 67 94.8223V94.6603Z"
-              ></path>
-              <path
-                mask="url(#path-28-inside-2_204_217)"
-                fill="#489CB7"
-                d="M67 92.3509L71 90.0415L67 92.3509ZM71.6928 92.5129C71.6928 94.0093 70.6423 95.8288 69.3464 96.577L69.3464 96.577C68.0505 97.3252 67 96.7187 67 95.2223V94.8223C67 95.6559 67.8954 95.8147 69 95.177L69 95.177C69.7219 94.7602 70.3072 93.7465 70.3072 92.9129L71.6928 92.5129ZM67 97.1317V92.3509V97.1317ZM69.2762 91.0367C70.6109 90.2661 71.6928 90.8908 71.6928 92.4319V92.5129C71.6928 94.0093 70.6423 95.8288 69.3464 96.577L69 95.177C69.7219 94.7602 70.3072 93.7465 70.3072 92.9129V92.7509C70.3072 91.4754 69.7219 90.7794 69 91.1962L69.2762 91.0367Z"
-              ></path>
-            </g>
-            <defs>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="92.0933"
-                x2="92.5421"
-                y1="92.0933"
-                x1="1.00946"
-                id="paint0_linear_204_217"
-              >
-                <stop stop-color="#5727CC"></stop>
-                <stop stop-color="#4354BF" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="91.1638"
-                x2="6.72169"
-                y1="70"
-                x1="92.5"
-                id="paint1_linear_204_217"
-              >
-                <stop stop-color="#4559C4"></stop>
-                <stop stop-color="#332C94" offset="0.29"></stop>
-                <stop stop-color="#5727CB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="85.0762"
-                x2="3.55544"
-                y1="70"
-                x1="92.5"
-                id="paint2_linear_204_217"
-              >
-                <stop stop-color="#91DDFB"></stop>
-                <stop stop-color="#8841D5" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="32.558"
-                x2="43.5482"
-                y1="28.7976"
-                x1="43.5482"
-                id="paint3_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="48.3519"
-                x2="50.0323"
-                y1="44.5915"
-                x1="50.0323"
-                id="paint4_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="62.6416"
-                x2="40.3062"
-                y1="59.6332"
-                x1="40.3062"
-                id="paint5_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="73.9229"
-                x2="50.7527"
-                y1="68.6583"
-                x1="50.7527"
-                id="paint6_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="76.9312"
-                x2="48.5913"
-                y1="74.675"
-                x1="48.5913"
-                id="paint7_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="67.1541"
-                x2="52.9153"
-                y1="66.402"
-                x1="52.9153"
-                id="paint8_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="43.8394"
-                x2="52.1936"
-                y1="41.5832"
-                x1="52.1936"
-                id="paint9_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="29.5497"
-                x2="57.2367"
-                y1="27.2935"
-                x1="57.2367"
-                id="paint10_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="34.8144"
-                x2="43.9084"
-                y1="33.3102"
-                x1="43.9084"
-                id="paint11_linear_204_217"
-              >
-                <stop stop-color="#5927CE"></stop>
-                <stop stop-color="#91DDFB" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="16.0743"
-                x2="62.9858"
-                y1="88.5145"
-                x1="67.8638"
-                id="paint12_linear_204_217"
-              >
-                <stop stop-color="#97E6FF"></stop>
-                <stop stop-opacity="0" stop-color="white" offset="1"></stop>
-              </linearGradient>
-              <linearGradient
-                gradientUnits="userSpaceOnUse"
-                y2="39.4139"
-                x2="31.4515"
-                y1="88.0938"
-                x1="36.2597"
-                id="paint13_linear_204_217"
-              >
-                <stop stop-color="#97E6FF"></stop>
-                <stop stop-opacity="0" stop-color="white" offset="1"></stop>
-              </linearGradient>
-            </defs>
-          </svg>
         </div>
-
-      </div>
-    </section>
+      </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.5s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition:
-    opacity 0.8s ease,
-    transform 0.8s ease;
-}
-
-.fade-enter-from {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.fade-leave-to {
-  opacity: 0;
-  transform: translateY(-20px);
-}
-
-/* ===== 3D 卡片样式 ===== */
-.card-3d-wrapper {
-  perspective: 1000px;
-  width: 100%;
-  max-width: 520px;
-  padding: 3px;
-  border-radius: 24px;
+/* ==================== 整体布局 ==================== */
+.space-station-page {
   position: relative;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  color: white;
 }
 
-.card-3d {
+/* ==================== 行星环绕布局（核心改造） ==================== */
+.planets-container {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 0;
+  height: 0;
+  z-index: 25;
+}
+
+.planet-item {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 保持原始大小，确保圆形轨道不变形 */
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), z-index 0s;
+  /* 允许鼠标交互 */
+  cursor: pointer;
+}
+
+/* 悬停时行星发光增强 */
+.planet-item:hover {
+  z-index: 100 !important;
+}
+
+/* 悬停时球壳发光增强 */
+.planet-item:hover .planet-sphere {
+  box-shadow:
+    0 0 60px rgba(168, 85, 247, 0.8),
+    0 0 120px rgba(168, 85, 247, 0.5),
+    inset 0 0 50px rgba(255, 255, 255, 0.15);
+}
+
+/* 三个行星各自的层级，防止聚在一起 */
+.planet-1 { z-index: 26; }
+.planet-2 { z-index: 27; }
+.planet-3 { z-index: 28; }
+
+/* 球形背景壳基础样式 - 磨砂玻璃质感 */
+.planet-sphere {
   position: relative;
-  border-radius: 22px;
-  overflow: hidden;
-  transform-style: preserve-3d;
-  background: linear-gradient(
-    135deg,
-    rgba(79, 70, 229, 0.08) 0%,
-    rgba(196, 113, 237, 0.08) 50%,
-    rgba(246, 79, 89, 0.06) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 磨砂玻璃效果 */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  /* 边框发光 */
   border: 1px solid rgba(255, 255, 255, 0.15);
+  /* 内部阴影增加立体感 */
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    inset 0 0 30px rgba(255, 255, 255, 0.05),
+    inset 0 -10px 30px rgba(0, 0, 0, 0.2);
+  /* 确保内容不超出 */
+  overflow: visible;
+  /* 允许鼠标交互 */
+  cursor: pointer;
+  /* 悬停发光增强 */
+  transition: box-shadow 0.3s ease, transform 0.4s ease;
 }
 
-.dark .card-3d {
-  background: linear-gradient(
-    135deg,
-    rgba(79, 70, 229, 0.15) 0%,
-    rgba(196, 113, 237, 0.12) 50%,
-    rgba(246, 79, 89, 0.08) 100%
+/* 悬停发光增强 */
+.planet-sphere:hover {
+  transform: scale(1.05);
+}
+
+/* 紫色渐变球体 - PlanetOrbit */
+.sphere-purple {
+  width: 130px;
+  height: 130px;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(168, 85, 247, 0.4) 0%,
+    rgba(139, 92, 246, 0.3) 40%,
+    rgba(87, 40, 204, 0.25) 70%,
+    rgba(59, 130, 246, 0.2) 100%
   );
-  border-color: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    0 2px 8px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 0 40px rgba(168, 85, 247, 0.5),
+    0 0 80px rgba(168, 85, 247, 0.3),
+    inset 0 0 30px rgba(255, 255, 255, 0.08),
+    inset 0 -15px 40px rgba(87, 40, 204, 0.3);
+  animation-delay: 0s;
 }
 
-.card-3d-glare {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  border-radius: 22px;
-  pointer-events: none;
-  background: transparent;
-}
-
-.card-3d-border-glow {
-  position: absolute;
-  inset: -1px;
-  border-radius: 23px;
-  z-index: -1;
-  background: linear-gradient(
-    135deg,
-    rgba(79, 70, 229, 0.4),
-    rgba(196, 113, 237, 0.3),
-    rgba(246, 79, 89, 0.2),
-    rgba(18, 194, 233, 0.3)
+/* 星云渐变球体 - NebulaLoader */
+.sphere-nebula {
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255, 191, 72, 0.35) 0%,
+    rgba(190, 74, 29, 0.3) 35%,
+    rgba(139, 92, 246, 0.25) 60%,
+    rgba(236, 72, 153, 0.2) 100%
   );
-  background-size: 300% 300%;
-  animation: borderGradient 6s ease infinite;
-  filter: blur(4px);
-  opacity: 0.6;
+  box-shadow:
+    0 0 50px rgba(255, 191, 72, 0.4),
+    0 0 100px rgba(190, 74, 29, 0.25),
+    inset 0 0 40px rgba(255, 255, 255, 0.1),
+    inset 0 -20px 50px rgba(139, 92, 246, 0.3);
+  animation-delay: 0.3s;
 }
 
-@keyframes borderGradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+/* 金色渐变球体 - PyramidLoader */
+.sphere-gold {
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(43, 222, 172, 0.35) 0%,
+    rgba(139, 92, 246, 0.3) 30%,
+    rgba(210, 40, 253, 0.25) 60%,
+    rgba(47, 37, 133, 0.2) 100%
+  );
+  box-shadow:
+    0 0 45px rgba(43, 222, 172, 0.4),
+    0 0 90px rgba(210, 40, 253, 0.3),
+    inset 0 0 35px rgba(255, 255, 255, 0.08),
+    inset 0 -15px 45px rgba(47, 37, 133, 0.4);
+  animation-delay: 0.6s;
 }
 
-.card-3d-content {
+/* 确保组件在球体内部正确显示 */
+.planet-sphere > * {
   position: relative;
   z-index: 1;
-  padding: 3rem 2rem 2.5rem;
+}
+
+/* ==================== 行星悬停提示 ==================== */
+.planet-tooltip {
+  position: absolute;
+  bottom: calc(100% + 15px);
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.2rem;
+  gap: 4px;
+  padding: 10px 16px;
+  background: rgba(15, 12, 41, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
 }
 
-/* 卡片内 Name */
-.card-3d-name {
-  font-size: 2.5rem;
-  font-weight: 800;
-  line-height: 1.2;
-  margin: 0;
+.planet-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 8px solid transparent;
+  border-top-color: rgba(168, 85, 247, 0.4);
 }
 
-/* 卡片内标题区域 */
-.card-3d-titles {
-  height: 2rem;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
+.tooltip-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.card-3d-title-text {
-  font-size: 1.25rem;
-  font-weight: 500;
-  color: #6b7280;
+.tooltip-hint {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-:deep(.dark) .card-3d-title-text {
-  color: #d1d5db;
-}
-
-/* 卡片内技能标签 */
-.card-3d-skills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.card-3d-skill-tag {
-  padding: 0.375rem 1rem;
-  border-radius: 9999px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #374151;
-  background: rgba(243, 244, 246, 0.8);
-  border: 1px solid rgba(209, 213, 219, 0.5);
+/* 提示动画 */
+.tip-fade-enter-active,
+.tip-fade-leave-active {
   transition: all 0.3s ease;
-  cursor: default;
 }
 
-.card-3d-skill-tag:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  color: white;
-  border-color: transparent;
+.tip-fade-enter-from,
+.tip-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(10px);
 }
 
-:deep(.dark) .card-3d-skill-tag {
-  color: #d1d5db;
-  background: rgba(55, 65, 81, 0.6);
-  border-color: rgba(75, 85, 99, 0.5);
+/* ==================== 背景层 ==================== */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  /* 添加渐变叠加，让 CSS 背景与 Mars3D 地球融合 */
+  background: linear-gradient(
+    180deg,
+    rgba(15, 12, 41, 0.85) 0%,
+    rgba(48, 43, 99, 0.7) 40%,
+    rgba(36, 36, 62, 0.6) 100%
+  );
 }
 
-:deep(.dark) .card-3d-skill-tag:hover {
-  background: linear-gradient(135deg, #4f46e5, #7c3aed);
-  color: white;
-  border-color: transparent;
+.nebula-bg {
+  position: absolute;
+  inset: -50%;
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(168, 85, 247, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 30%, rgba(236, 72, 153, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 60%, rgba(16, 185, 129, 0.12) 0%, transparent 40%);
+  animation: nebulaFlow 20s ease-in-out infinite;
 }
 
-/* ===== 渐变相关 ===== */
-@keyframes gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+@keyframes nebulaFlow {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
 }
 
-.gradient-name {
-  @apply bg-gradient-to-r from-[#12c2e9] via-[#c471ed] to-[#f64f59] bg-clip-text text-transparent;
-  background-size: 300% auto;
-  animation: gradient 6s linear infinite;
-}
-
-/* ===== 头像相关 ===== */
-.avatar-container {
-  position: relative;
+.mid-layer {
+  position: absolute;
+  inset: 0;
   z-index: 1;
 }
 
-.avatar {
-  position: relative;
-  z-index: 2;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  animation: float 6s ease-in-out infinite;
+.floating-code {
+  position: absolute;
+  font-family: 'Courier New', monospace;
+  color: rgba(168, 85, 247, 0.5);
+  animation: floatCode 8s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
 }
 
-@keyframes float {
+@keyframes floatCode {
+  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+  50% { transform: translateY(-8px) rotate(3deg); opacity: 0.5; }
+}
+
+.near-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.geo-lines {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0.12;
+  z-index: 1;
+}
+
+.geo-lines path {
+  fill: none;
+  stroke-width: 0.8;
+  stroke-linecap: round;
+}
+
+.stars-container {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+  animation: starTwinkle 3s ease-in-out infinite;
+}
+
+@keyframes starTwinkle {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* ==================== 代码雨 ==================== */
+.code-rain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+}
+
+.code-drop {
+  position: absolute;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  color: rgba(168, 85, 247, 0.5);
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.4), 0 0 20px rgba(168, 85, 247, 0.2);
+  white-space: nowrap;
+  animation: codeDropFall 3s linear infinite;
+}
+
+@keyframes codeDropFall {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.6;
+  }
+  90% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(100px);
+    opacity: 0;
+  }
+}
+
+/* ==================== 爆炸效果 ==================== */
+.explosion {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.explosion-particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  border-radius: 50%;
+  animation: explode 0.6s ease-out forwards;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes explode {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0);
+    opacity: 0;
+  }
+}
+
+/* ==================== 主内容层 ==================== */
+.main-content {
+  position: relative;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
+.main-content.loaded {
+  opacity: 1;
+}
+
+/* ==================== 导航栏 ==================== */
+.glass-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 1rem 2rem;
+  background: transparent;
+  transition: all 0.4s ease;
+}
+
+.glass-nav.scrolled {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(168, 85, 247, 0.3);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+.nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ascii-logo {
+  position: relative;
+  font-family: 'Courier New', monospace;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.logo-text {
+  display: flex;
+  background: linear-gradient(135deg, #a855f7, #ec4899, #3b82f6);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: logoGradient 3s ease infinite;
+}
+
+.logo-char {
+  animation: charPop 0.5s ease backwards;
+}
+
+@keyframes charPop {
+  0% { opacity: 0; transform: scale(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes logoGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.logo-glow {
+  position: absolute;
+  inset: -10px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.3), transparent 70%);
+  filter: blur(10px);
+  animation: logoGlow 2s ease-in-out infinite;
+}
+
+@keyframes logoGlow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.nav-items {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nav-item {
+  position: relative;
+  padding: 0.5rem 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  border-radius: 9999px;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.nav-item:hover {
+  color: white;
+  background: rgba(168, 85, 247, 0.2);
+}
+
+.nav-icon {
+  position: absolute;
+  left: 0.5rem;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.3s ease;
+}
+
+.nav-item:hover .nav-icon {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.nav-text {
+  transition: all 0.3s ease;
+}
+
+.nav-underline {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #a855f7, #ec4899);
+  transform: translateX(-50%);
+  transition: width 0.3s ease;
+  border-radius: 1px;
+}
+
+.nav-item:hover .nav-underline {
+  width: 60%;
+}
+
+/* ==================== Hero 区 ==================== */
+.hero-section {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 2rem 2rem;
+}
+
+.capsule-wrapper {
+  position: relative;
+  z-index: 15;
+  animation: capsuleFloat 6s ease-in-out infinite;
+  filter: drop-shadow(0 0 40px rgba(168, 85, 247, 0.6));
+  /* 火箭不阻挡鼠标事件，让行星可以接收 */
+  pointer-events: none;
+}
+
+.capsule-wrapper * {
+  pointer-events: auto;
+}
+
+@keyframes capsuleFloat {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
 
-.glow-effect {
+/* 火箭形态悬浮舱 */
+.rocket-capsule {
+  position: relative;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+
+.rocket-nose {
+  width: 80px;
+  height: 70px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 10;
+}
+
+.cone-wrapper {
+  position: relative;
+  width: 70px;
+  height: 65px;
+}
+
+.cone-body {
   position: absolute;
-  inset: -2px;
-  background: linear-gradient(45deg, var(--color-primary), #c471ed, #f64f59);
-  border-radius: 50%;
-  filter: blur(15px);
-  opacity: 0.2;
-  z-index: 1;
-  animation: glow 3s ease-in-out infinite;
-}
-
-@keyframes glow {
-  0%, 100% { opacity: 0.15; filter: blur(15px); }
-  50% { opacity: 0.25; filter: blur(18px); }
-}
-
-@media (prefers-color-scheme: dark) {
-  .glow-effect {
-    filter: blur(20px);
-    animation: glowDark 3s ease-in-out infinite;
-  }
-  @keyframes glowDark {
-    0%, 100% { opacity: 0.2; filter: blur(20px); }
-    50% { opacity: 0.3; filter: blur(22px); }
-  }
-}
-
-.halo-effect {
-  position: absolute;
-  inset: -4px;
-  background: radial-gradient(
-    circle at 50% 50%,
-    rgba(var(--color-primary-rgb), 0.15),
-    transparent 70%
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 65px;
+  background: linear-gradient(180deg,
+    #ec4899 0%,
+    #c026d3 25%,
+    #a855f7 50%,
+    #7c3aed 75%,
+    #4f46e5 100%
   );
-  border-radius: 50%;
-  z-index: 1;
-  animation: pulse 3s ease-in-out infinite;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+  animation: coneSpin 3s linear infinite;
+  box-shadow:
+    0 0 30px rgba(236, 72, 153, 0.6),
+    inset 0 -20px 40px rgba(139, 92, 246, 0.5);
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(1.05); }
-}
-
-.rotating-border {
+.cone-body::before {
+  content: '';
   position: absolute;
-  inset: -6px;
-  border-radius: 50%;
-  background: linear-gradient(45deg, var(--color-primary), transparent 60%);
-  opacity: 0.2;
-  z-index: 1;
-  animation: spin 8s linear infinite;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,0.4) 30%,
+    transparent 50%,
+    rgba(0,0,0,0.2) 70%,
+    transparent 100%
+  );
+  animation: coneShine 1.5s ease-in-out infinite;
 }
 
-@keyframes spin {
+@keyframes coneSpin {
+  0% { transform: translateX(-50%) rotateY(0deg); }
+  100% { transform: translateX(-50%) rotateY(360deg); }
+}
+
+@keyframes coneShine {
+  0%, 100% { opacity: 0.3; transform: translateX(-50%); }
+  50% { opacity: 0.8; transform: translateX(0%); }
+}
+
+/* 火箭主体 */
+.rocket-body {
+  width: 100%;
+  background: linear-gradient(180deg,
+    rgba(168, 85, 247, 0.3) 0%,
+    rgba(139, 92, 246, 0.25) 30%,
+    rgba(236, 72, 153, 0.2) 100%
+  );
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px 20px 10px 10px;
+  padding: 1.5rem 1rem;
+  box-shadow:
+    0 0 40px rgba(168, 85, 247, 0.4),
+    inset 0 0 30px rgba(255, 255, 255, 0.05);
+}
+
+/* 火箭火焰 */
+.rocket-flames {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: -2px;
+}
+
+.flame {
+  width: 20px;
+  height: 40px;
+  border-radius: 0 0 50% 50%;
+  background: linear-gradient(180deg, #fbbf24 0%, #f97316 50%, #ef4444 100%);
+  animation: flameFlicker 0.15s ease-in-out infinite alternate;
+}
+
+.flame-1 { height: 45px; animation-delay: 0s; }
+.flame-2 { height: 55px; animation-delay: 0.05s; }
+.flame-3 { height: 40px; animation-delay: 0.1s; }
+
+@keyframes flameFlicker {
+  0% { transform: scaleY(1) scaleX(1); opacity: 1; }
+  100% { transform: scaleY(1.1) scaleX(0.9); opacity: 0.8; }
+}
+
+/* 火箭尾翼 */
+.rocket-fins {
+  position: absolute;
+  bottom: 50px;
+  width: 100%;
+  height: 60px;
+  pointer-events: none;
+}
+
+.fin {
+  position: absolute;
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.8) 0%, rgba(139, 92, 246, 0.6) 100%);
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+}
+
+.fin-left {
+  left: -20px;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 0 35px 25px;
+  border-color: transparent transparent rgba(168, 85, 247, 0.7) transparent;
+  filter: drop-shadow(-3px 0 8px rgba(168, 85, 247, 0.5));
+}
+
+.fin-right {
+  right: -20px;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 25px 35px 0;
+  border-color: transparent transparent rgba(168, 85, 247, 0.7) transparent;
+  filter: drop-shadow(3px 0 8px rgba(168, 85, 247, 0.5));
+}
+
+.fin-back {
+  left: 50%;
+  bottom: 5px;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 8px;
+  background: linear-gradient(90deg, transparent, rgba(236, 72, 153, 0.6), transparent);
+  border-radius: 4px;
+  filter: blur(2px);
+}
+
+.avatar-section {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.avatar-wrapper {
+  position: relative;
+  width: 110px;
+  height: 110px;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid white;
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.5);
+  transition: all 0.4s ease;
+}
+
+.avatar-img:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 50px rgba(168, 85, 247, 0.8);
+}
+
+.avatar-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  animation: ringRotate 8s linear infinite;
+}
+
+.ring-1 {
+  inset: -10px;
+  border-top-color: rgba(168, 85, 247, 0.8);
+  border-right-color: rgba(236, 72, 153, 0.8);
+}
+
+.ring-2 {
+  inset: -20px;
+  border-bottom-color: rgba(59, 130, 246, 0.8);
+  border-left-color: rgba(16, 185, 129, 0.8);
+  animation-direction: reverse;
+  animation-duration: 12s;
+}
+
+@keyframes ringRotate {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-@media (prefers-color-scheme: dark) {
-  .halo-effect {
-    background: radial-gradient(
-      circle at 50% 50%,
-      rgba(var(--color-primary-rgb), 0.2),
-      transparent 70%
-    );
-  }
-  .rotating-border {
-    opacity: 0.25;
-    background: linear-gradient(45deg, var(--color-primary), transparent 70%);
-  }
+.profile-section {
+  text-align: center;
 }
 
-/* ===== SVG 动画 ===== */
-#svg-global {
-  overflow: visible;
+.profile-name {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, #a855f7, #ec4899, #3b82f6);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: nameGradient 4s ease infinite;
+  font-family: 'ZCOOL KuaiLe', cursive;
 }
 
-@keyframes fade-particles {
+@keyframes nameGradient {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.typewriter-text {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1.5rem;
+  min-height: 1.5rem;
+}
+
+.cursor {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0; }
 }
 
-@keyframes floatUp {
-  0% { transform: translateY(0); opacity: 0; }
-  10% { opacity: 1; }
-  100% { transform: translateY(-40px); opacity: 0; }
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
 }
 
-#particles {
-  animation: fade-particles 5s infinite alternate;
+.skill-tag {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.particle {
-  animation: floatUp linear infinite;
+.skill-tag:hover {
+  transform: translateY(-3px);
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.6), rgba(236, 72, 153, 0.6));
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.4);
 }
 
-.p1 { animation-duration: 2.2s; animation-delay: 0s; }
-.p2 { animation-duration: 2.5s; animation-delay: 0.3s; }
-.p3 { animation-duration: 2s; animation-delay: 0.6s; }
-.p4 { animation-duration: 2.8s; animation-delay: 0.2s; }
-.p5 { animation-duration: 2.3s; animation-delay: 0.4s; }
-.p6 { animation-duration: 3s; animation-delay: 0.1s; }
-.p7 { animation-duration: 2.1s; animation-delay: 0.5s; }
-.p8 { animation-duration: 2.6s; animation-delay: 0.2s; }
-.p9 { animation-duration: 2.4s; animation-delay: 0.3s; }
-
-@keyframes bounce-lines {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-}
-
-#line-v1,
-#line-v2,
-#node-server,
-#panel-rigth,
-#reflectores,
-#particles {
-  animation: bounce-lines 3s ease-in-out infinite alternate;
-}
-
-#line-v2 { animation-delay: 0.2s; }
-
-#node-server,
-#panel-rigth,
-#reflectores,
-#particles { animation-delay: 0.4s; }
-
-/* ===== Pyramid Loader ===== */
-.pyramid-loader {
+/* ==================== 控制台模块 ==================== */
+.console-section {
   position: relative;
-  width: 100px;
-  height: 100px;
-  transform-style: preserve-3d;
-  transform: rotateX(-20deg);
-  flex-shrink: 0;
+  padding: 4rem 2rem;
+  z-index: 10;
 }
 
-.pyramid-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  animation: pyramid-spin 4s linear infinite;
-}
-
-@keyframes pyramid-spin {
-  to { transform: rotateY(360deg); }
-}
-
-.pyramid-side {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 50px;
-  height: 50px;
-  transform-origin: center top;
-  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-}
-
-.pyramid-side.s1 {
-  transform: rotateZ(-30deg) rotateY(90deg);
-  background: conic-gradient(#2BDEAC, #F028FD, #D8CCE6, #2F2585);
-}
-
-.pyramid-side.s2 {
-  transform: rotateZ(30deg) rotateY(90deg);
-  background: conic-gradient(#2F2585, #D8CCE6, #F028FD, #2BDEAC);
-}
-
-.pyramid-side.s3 {
-  transform: rotateX(30deg);
-  background: conic-gradient(#2F2585, #D8CCE6, #F028FD, #2BDEAC);
-}
-
-.pyramid-side.s4 {
-  transform: rotateX(-30deg);
-  background: conic-gradient(#2BDEAC, #F028FD, #D8CCE6, #2F2585);
-}
-
-.pyramid-shadow {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 45px;
-  height: 45px;
-  background: #8B5AD5;
-  transform: rotateX(90deg) translateZ(-35px);
-  filter: blur(10px);
-}
-
-/* ===== Liquid Loader ===== */
-.liquid-loader {
-  --c1: #ffbf48;
-  --c2: #be4a1d;
-  --c3: #ffbf4780;
-  --c4: #bf4a1d80;
-  --c5: #ffbf4740;
-  --t: 2s;
-  position: relative;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  flex-shrink: 0;
+.terminal-window {
+  max-width: 800px;
+  margin: 0 auto;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  border-radius: 12px;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  overflow: hidden;
   box-shadow:
-    0 0 25px 0 var(--c3),
-    0 20px 50px 0 var(--c4);
-  animation: loader-colorize calc(var(--t) * 3) ease-in-out infinite;
+    0 0 40px rgba(168, 85, 247, 0.2),
+    inset 0 0 60px rgba(0, 0, 0, 0.3);
 }
 
-.liquid-loader::before {
-  content: "";
-  position: absolute;
-  inset: 0;
+.terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.terminal-dots {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
-  border-top: solid 1px var(--c1);
-  border-bottom: solid 1px var(--c2);
-  background: linear-gradient(180deg, var(--c5), var(--c4));
-  box-shadow:
-    inset 0 10px 10px 0 var(--c3),
-    inset 0 -10px 10px 0 var(--c4);
 }
 
-.liquid-box {
-  width: 80px;
-  height: 80px;
-  background: linear-gradient(180deg, var(--c1) 30%, var(--c2) 70%);
-  mask: url(#clipping);
-  -webkit-mask: url(#clipping);
+.dot.red { background: #ff5f56; }
+.dot.yellow { background: #ffbd2e; }
+.dot.green { background: #27ca40; }
+
+.terminal-title {
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.liquid-loader svg {
-  position: absolute;
+.terminal-body {
+  padding: 1rem;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.liquid-loader svg #clipping {
-  filter: contrast(15);
-  animation: loader-roundness calc(var(--t) / 2) linear infinite;
+.console-output {
+  margin-bottom: 1rem;
 }
 
-.liquid-loader svg #clipping polygon {
-  filter: blur(7px);
+.console-line {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #27ca40;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
-.liquid-loader svg #clipping polygon:nth-child(1) {
-  transform-origin: 75% 25%;
-  transform: rotate(90deg);
+.console-input-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.liquid-loader svg #clipping polygon:nth-child(2) {
-  transform-origin: 50% 50%;
-  animation: loader-rotation var(--t) linear infinite reverse;
+.prompt {
+  color: #a855f7;
+  font-family: 'Courier New', monospace;
 }
 
-.liquid-loader svg #clipping polygon:nth-child(3) {
-  transform-origin: 50% 60%;
-  animation: loader-rotation var(--t) linear infinite;
-  animation-delay: calc(var(--t) / -3);
+.console-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: white;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
 }
 
-.liquid-loader svg #clipping polygon:nth-child(4) {
-  transform-origin: 40% 40%;
-  animation: loader-rotation var(--t) linear infinite reverse;
+.console-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
 }
 
-.liquid-loader svg #clipping polygon:nth-child(5) {
-  transform-origin: 40% 40%;
-  animation: loader-rotation var(--t) linear infinite reverse;
-  animation-delay: calc(var(--t) / -2);
-}
-
-.liquid-loader svg #clipping polygon:nth-child(6) {
-  transform-origin: 60% 40%;
-  animation: loader-rotation var(--t) linear infinite;
-}
-
-.liquid-loader svg #clipping polygon:nth-child(7) {
-  transform-origin: 60% 40%;
-  animation: loader-rotation var(--t) linear infinite;
-  animation-delay: calc(var(--t) / -1.5);
-}
-
-@keyframes loader-rotation {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes loader-roundness {
-  0%   { filter: contrast(15); }
-  20%  { filter: contrast(3); }
-  40%  { filter: contrast(3); }
-  60%  { filter: contrast(15); }
-  100% { filter: contrast(15); }
-}
-
-@keyframes loader-colorize {
-  0%   { filter: hue-rotate(0deg); }
-  20%  { filter: hue-rotate(-30deg); }
-  40%  { filter: hue-rotate(-60deg); }
-  60%  { filter: hue-rotate(-90deg); }
-  80%  { filter: hue-rotate(-45deg); }
-  100% { filter: hue-rotate(0deg); }
-}
-
-/* ===== 响应式 ===== */
-@media (max-width: 640px) {
-  .card-3d-content {
-    padding: 2rem 1.5rem 2rem;
+/* ==================== 响应式 ==================== */
+@media (max-width: 768px) {
+  .glass-nav {
+    padding: 0.75rem 1rem;
   }
 
-  .card-3d-name {
-    font-size: 2rem;
+  .ascii-logo {
+    font-size: 1.2rem;
   }
 
-  .card-3d-title-text {
-    font-size: 1.1rem;
+  .nav-items {
+    gap: 0.25rem;
   }
+
+  .nav-item {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .nav-icon {
+    display: none;
+  }
+
+  .hero-section {
+    padding: 5rem 1rem 2rem;
+  }
+
+  .rocket-capsule {
+    width: 240px;
+  }
+
+  .rocket-body {
+    padding: 1rem 0.8rem;
+  }
+
+  .rocket-nose {
+    width: 60px;
+    height: 40px;
+  }
+
+  .avatar-wrapper {
+    width: 90px;
+    height: 90px;
+  }
+
+  .profile-name {
+    font-size: 1.5rem;
+  }
+
+  .skill-tags {
+    gap: 0.3rem;
+  }
+
+  .skill-tag {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.5);
+  border-radius: 3px;
 }
 </style>

@@ -1,287 +1,332 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
-import PageTransition from "@/components/PageTransition.vue";
-import Tabs from "@/components/ui/Tabs.vue";
-import BookmarksView from "@/views/tools/BookmarksView.vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { projects } from "@/config/projects";
-import { tools } from "@/config/tools";
-import { tabs } from "@/config/navigation";
-
-const activeTab = ref("projects");
-const activeToolId = ref<number | null>(null);
 
 const projectsList = ref(projects);
-const toolsList = ref(tools);
 
-const activeTool = computed(() =>
-  toolsList.value.find((tool) => tool.id === activeToolId.value),
+// 当前轮播索引
+const currentIndexes = ref<Record<number, number>>(
+  projects.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {})
 );
 
-const showToolList = () => {
-  activeToolId.value = null;
+// 自动轮播计时器
+const autoPlayIntervals = ref<Record<number, number>>({});
+
+// 切换到上一张
+const prevImage = (projectId: number, imagesLength: number) => {
+  const current = currentIndexes.value[projectId];
+  currentIndexes.value[projectId] = current === 0 ? imagesLength - 1 : current - 1;
 };
 
-// 加载状态
-const isLoading = ref(false);
-
-// 模拟加载效果
-const handleTabChange = async () => {
-  isLoading.value = true;
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  isLoading.value = false;
+// 切换到下一张
+const nextImage = (projectId: number, imagesLength: number) => {
+  const current = currentIndexes.value[projectId];
+  currentIndexes.value[projectId] = (current + 1) % imagesLength;
 };
+
+// 指示器点击
+const goToImage = (projectId: number, idx: number) => {
+  currentIndexes.value[projectId] = idx;
+};
+
+// 鼠标悬停暂停
+const pauseAutoPlay = (projectId: number) => {
+  if (autoPlayIntervals.value[projectId]) {
+    clearInterval(autoPlayIntervals.value[projectId]);
+    delete autoPlayIntervals.value[projectId];
+  }
+};
+
+// 鼠标离开恢复
+const resumeAutoPlay = (projectId: number, imagesLength: number) => {
+  if (imagesLength > 1) {
+    autoPlayIntervals.value[projectId] = window.setInterval(() => {
+      nextImage(projectId, imagesLength);
+    }, 4000);
+  }
+};
+
+onMounted(() => {
+  // 启动所有项目的自动轮播
+  projectsList.value.forEach((project) => {
+    if (project.images.length > 1) {
+      autoPlayIntervals.value[project.id] = window.setInterval(() => {
+        nextImage(project.id, project.images.length);
+      }, 4000);
+    }
+  });
+});
+
+onUnmounted(() => {
+  // 清除所有计时器
+  Object.values(autoPlayIntervals.value).forEach((interval) => {
+    clearInterval(interval);
+  });
+  autoPlayIntervals.value = {};
+});
 
 // 页面切换动画延迟
 const getTransitionDelay = (index: number) => `${index * 100}ms`;
 </script>
 
 <template>
-  <div class="container mx-auto px-4 py-8 md:py-12">
-    <h1
-      class="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-8 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient"
-    >
-      工具集
-    </h1>
+  <div class="projects-page">
+    <div class="page-header">
+      <h1 class="page-title">项目展示</h1>
+      <p class="page-subtitle">我的作品集</p>
+    </div>
 
-    <div class="max-w-6xl mx-auto">
-      <!-- 标签页切换 -->
-      <div class="mb-6 md:mb-8">
-        <Tabs
-          v-model="activeTab"
-          :tabs="tabs"
-          class="justify-center max-w-md mx-auto bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-full p-1.5 md:p-2 shadow-sm flex items-center gap-1.5 md:gap-2 text-sm md:text-base"
-          @update:modelValue="handleTabChange"
-        />
-      </div>
-
-      <!-- 加载状态 -->
-      <div
-        v-if="isLoading"
-        class="flex items-center justify-center py-8 md:py-12"
+    <div class="projects-container">
+      <article
+        v-for="(project, index) in projectsList"
+        :key="project.id"
+        :style="{ transitionDelay: getTransitionDelay(index) }"
+        class="project-card animate-fade-in"
       >
-        <div
-          class="loader dark:border-t-gray-700 dark:border-r-gray-700 dark:border-l-gray-700 w-10 h-10 md:w-12 md:h-12"
-        ></div>
-      </div>
-
-      <template v-else>
-        <!-- 项目列表 -->
-        <TransitionGroup
-          v-show="activeTab === 'projects'"
-          name="list"
-          tag="div"
-          class="grid grid-cols-1 md:grid-cols-2 gap-8 px-4"
+        <!-- 轮播区域 -->
+        <div 
+          class="carousel-wrapper"
+          @mouseenter="pauseAutoPlay(project.id)"
+          @mouseleave="resumeAutoPlay(project.id, project.images.length)"
         >
-          <article
-            v-for="(project, index) in projectsList"
-            :key="project.id"
-            :style="{ transitionDelay: getTransitionDelay(index) }"
-            class="group bg-white dark:bg-gray-800/90 rounded-xl shadow-lg overflow-hidden hover:shadow-xl dark:hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-2 relative dark:border dark:border-gray-700/50 dark:hover:glow-lg dark:hover:border-primary/30 flex flex-col animate-fade-in"
-          >
-            <!-- 项目卡片悬停效果 -->
-            <div
-              class="absolute inset-0 bg-primary/5 dark:bg-primary/10 opacity-0 group-hover:opacity-100 transition-all duration-300 dark:group-hover:backdrop-blur-sm"
-            ></div>
-            <div class="relative h-56 overflow-hidden">
-              <img
-                :src="project.image"
-                :alt="project.title"
-                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-              />
-              <div
-                class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
-              >
-                <a
-                  v-if="project.link && project.status === 'completed'"
-                  :href="project.link"
-                  target="_blank"
-                  class="px-8 py-3 bg-white/20 hover:bg-white/30 rounded-full transition-all duration-300 text-white font-medium hover:scale-105 hover:shadow-lg backdrop-blur-sm"
-                >
-                  访问项目
-                </a>
-                <span
-                  v-if="project.status !== 'completed'"
-                  class="px-8 py-3 bg-white/20 rounded-full text-white backdrop-blur-sm"
-                >
-                  {{ project.status === "developing" ? "开发中" : "规划中" }}
-                </span>
-              </div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col">
-              <div class="flex items-center justify-between mb-2">
-                <h3 class="text-xl font-semibold dark:text-gray-100">
-                  {{ project.title }}
-                </h3>
-                <span
-                  class="text-sm px-2 py-1 rounded"
-                  :class="{
-                    'bg-green-100/80 text-green-800 dark:bg-green-900/80 dark:text-green-100':
-                      project.status === 'completed',
-                    'bg-yellow-100/80 text-yellow-800 dark:bg-yellow-900/80 dark:text-yellow-100':
-                      project.status === 'developing',
-                    'bg-gray-100/80 text-gray-800 dark:bg-gray-900/80 dark:text-gray-100':
-                      project.status === 'planning',
-                  }"
-                >
-                  {{
-                    project.status === "completed"
-                      ? "已完成"
-                      : project.status === "developing"
-                        ? "开发中"
-                        : "规划中"
-                  }}
-                </span>
-              </div>
-              <p class="text-gray-600 dark:text-gray-400 mb-4 flex-1">
-                {{ project.description }}
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <span
-                  v-for="tag in project.tags"
-                  :key="tag"
-                  class="px-3 py-1 bg-primary-10 dark:bg-primary/10 text-primary dark:text-primary-light rounded-full text-sm font-medium hover:scale-105 transition-transform cursor-default"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </TransitionGroup>
-
-        <!-- 工具列表 -->
-        <TransitionGroup
-          v-show="activeTab === 'tools' && !activeToolId"
-          name="list"
-          tag="div"
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4"
-        >
-          <article
-            v-for="(tool, index) in toolsList"
-            :key="tool.id"
-            :style="{ transitionDelay: getTransitionDelay(index) }"
-            class="group bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 dark:border-gray-700/50"
-          >
-            <div class="relative h-40 md:h-48 overflow-hidden rounded-t-lg">
-              <img
-                :src="tool.image"
-                :alt="tool.title"
-                class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div
-                class="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center"
-              >
-                <button
-                  v-if="tool.status === 'completed'"
-                  @click="activeToolId = tool.id"
-                  class="px-6 py-2 md:px-8 md:py-3 bg-white/20 hover:bg-white/30 rounded-full transition-all duration-300 text-white text-sm md:text-base font-medium hover:scale-105 hover:shadow-lg backdrop-blur-sm"
-                >
-                  立即使用
-                </button>
-                <span
-                  v-else
-                  class="px-6 py-2 md:px-8 md:py-3 bg-white/20 rounded-full text-white backdrop-blur-sm text-sm md:text-base font-medium"
-                >
-                  {{ tool.status === "developing" ? "开发中" : "规划中" }}
-                </span>
-              </div>
-            </div>
-
-            <div class="p-4 md:p-5">
-              <div class="flex items-center justify-between mb-2">
-                <h3
-                  class="text-base md:text-lg font-medium text-gray-800 dark:text-gray-200"
-                >
-                  {{ tool.title }}
-                </h3>
-                <span
-                  class="text-xs md:text-sm px-2 py-1 rounded"
-                  :class="{
-                    'bg-green-100/80 text-green-800 dark:bg-green-900/80 dark:text-green-100':
-                      tool.status === 'completed',
-                    'bg-yellow-100/80 text-yellow-800 dark:bg-yellow-900/80 dark:text-yellow-100':
-                      tool.status === 'developing',
-                    'bg-gray-100/80 text-gray-800 dark:bg-gray-900/80 dark:text-gray-100':
-                      tool.status === 'planning',
-                  }"
-                >
-                  {{
-                    tool.status === "completed"
-                      ? "已完成"
-                      : tool.status === "developing"
-                        ? "开发中"
-                        : "规划中"
-                  }}
-                </span>
-              </div>
-              <p
-                class="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2"
-              >
-                {{ tool.description }}
-              </p>
-              <div class="flex flex-wrap gap-1.5">
-                <span
-                  v-for="tag in tool.tags"
-                  :key="tag"
-                  class="px-2 py-1 text-xs rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 shadow-sm hover:shadow hover:scale-105 hover:bg-primary hover:text-white dark:hover:bg-primary transition-all duration-300 cursor-default border border-gray-100 dark:border-gray-700/50"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-            </div>
-          </article>
-        </TransitionGroup>
-
-        <!-- 网址导航 -->
-        <div
-          v-show="activeTab === 'bookmarks'"
-          class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:p-6 animate-fade-in border border-gray-100 dark:border-gray-700"
-        >
-          <BookmarksView />
-        </div>
-
-        <!-- 工具详情页 -->
-        <div
-          v-if="activeTab === 'tools' && activeToolId"
-          class="relative bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 md:p-6 animate-fade-in border border-gray-100 dark:border-gray-700"
-        >
-          <!-- 返回按钮 -->
-          <div class="absolute left-0 transform -translate-y-full mb-2">
-            <button
-              @click="showToolList"
-              class="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 text-sm md:text-base text-gray-600 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-x-2"
-            >
-              <span class="text-lg md:text-xl leading-none">←</span>
-              <span>返回工具列表</span>
-            </button>
+          <div class="carousel">
+            <img
+              :src="project.images[currentIndexes[project.id]]"
+              :alt="project.title"
+              class="carousel-image"
+            />
           </div>
+          
+          <!-- 左右箭头 -->
+          <template v-if="project.images.length > 1">
+            <button
+              class="carousel-btn prev"
+              @click.stop="prevImage(project.id, project.images.length)"
+              aria-label="上一张"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+            <button
+              class="carousel-btn next"
+              @click.stop="nextImage(project.id, project.images.length)"
+              aria-label="下一张"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </template>
 
-          <component
-            v-if="activeTool?.component"
-            :is="activeTool.component"
-            class="animate-slide-up"
-          ></component>
+          <!-- 底部指示器 -->
+          <div class="carousel-indicators">
+            <span
+              v-for="(_, idx) in project.images"
+              :key="idx"
+              class="indicator"
+              :class="{ active: idx === currentIndexes[project.id] }"
+              @click.stop="goToImage(project.id, idx)"
+            ></span>
+          </div>
         </div>
-      </template>
+
+        <!-- 项目信息 -->
+        <div class="project-info">
+          <h2 class="project-title">{{ project.title }}</h2>
+          <p class="project-description">{{ project.description }}</p>
+          <div class="project-tags">
+            <span
+              v-for="tag in project.tags"
+              :key="tag"
+              class="tag"
+            >
+              {{ tag }}
+            </span>
+          </div>
+        </div>
+      </article>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* 列表动画 */
-.list-move,
-.list-enter-active,
-.list-leave-active {
-  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+.projects-page {
+  min-height: 100vh;
+  padding: 2rem;
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
 }
 
-.list-enter-from,
-.list-leave-to {
-  opacity: 0;
-  transform: scale(0.9) translateY(50px);
+.page-header {
+  text-align: center;
+  padding: 3rem 0;
 }
 
-.list-leave-active {
+.page-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #a855f7, #ec4899, #3b82f6);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient 4s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.1rem;
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.projects-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.project-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 60px rgba(168, 85, 247, 0.3);
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+/* 轮播样式 */
+.carousel-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.carousel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.carousel-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.3s ease;
+}
+
+.carousel-btn {
   position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+  opacity: 0;
+}
+
+.carousel-wrapper:hover .carousel-btn {
+  opacity: 1;
+}
+
+.carousel-btn:hover {
+  background: rgba(168, 85, 247, 0.7);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.carousel-btn.prev { left: 1rem; }
+.carousel-btn.next { right: 1rem; }
+
+.carousel-indicators {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.indicator:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.indicator.active {
+  background: #a855f7;
+  transform: scale(1.2);
+}
+
+/* 项目信息 */
+.project-info {
+  padding: 1.5rem 2rem 2rem;
+}
+
+.project-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  margin-bottom: 0.75rem;
+}
+
+.project-description {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.project-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag {
+  padding: 0.4rem 1rem;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3));
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 9999px;
+  color: white;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+}
+
+.tag:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(236, 72, 153, 0.5));
+  transform: translateY(-2px);
 }
 
 /* 渐入动画 */
@@ -296,119 +341,26 @@ const getTransitionDelay = (index: number) => `${index * 100}ms`;
   }
 }
 
-/* 向上滑入动画 */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 渐变动画 */
-@keyframes gradient {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.animate-gradient {
-  background-size: 200% auto;
-  animation: gradient 4s linear infinite;
-}
-
 .animate-fade-in {
   animation: fadeIn 0.6s ease-out forwards;
 }
 
-.animate-slide-up {
-  animation: slideUp 0.5s ease-out forwards;
-}
-
-/* 加载动画 */
-.loader {
-  width: 48px;
-  height: 48px;
-  border: 5px solid;
-  border-color: #f3f3f3;
-  border-bottom-color: var(--color-primary);
-  border-radius: 50%;
-  display: inline-block;
-  animation: rotation 1s linear infinite;
-}
-
-@keyframes rotation {
-  0% {
-    transform: rotate(0deg);
+/* 响应式 */
+@media (max-width: 768px) {
+  .projects-page {
+    padding: 1rem;
   }
-  100% {
-    transform: rotate(360deg);
+
+  .page-title {
+    font-size: 1.8rem;
   }
-}
 
-/* 暗色模式特效 */
-@media (prefers-color-scheme: dark) {
-  .dark\:hover\:glow-lg:hover {
-    box-shadow: 0 0 30px var(--color-primary);
-    transform: translateY(-0.5rem) scale(1.01);
+  .project-info {
+    padding: 1rem 1.25rem 1.5rem;
   }
-}
 
-/* 背景渐变 */
-.container {
-  background: linear-gradient(
-    135deg,
-    var(--color-primary-50/10) 0%,
-    transparent 100%
-  );
-}
-
-/* 卡片悬停效果增强 */
-.group:hover {
-  transform: translateY(-0.5rem) scale(1.01);
-  z-index: 1;
-}
-
-/* 标签页切换动画 */
-.tab-enter-active,
-.tab-leave-active {
-  transition: all 0.5s ease-in-out;
-}
-
-.tab-enter-from,
-.tab-leave-to {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-/* 加载动画优化 */
-.loader {
-  box-shadow: 0 0 15px var(--color-primary/30);
-}
-
-/* 暗色模式优化 */
-@media (prefers-color-scheme: dark) {
-  .container {
-    background: linear-gradient(
-      135deg,
-      var(--color-primary-900/10) 0%,
-      transparent 100%
-    );
+  .project-title {
+    font-size: 1.25rem;
   }
-}
-
-/* 返回按钮容器样式 */
-.transform {
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
 }
 </style>

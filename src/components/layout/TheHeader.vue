@@ -1,10 +1,37 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
 import { useRoute } from "vue-router";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 
 const route = useRoute();
 const isMenuOpen = ref(false);
+const scrollY = ref(0);
+
+// 检测暗色模式
+const isDark = ref(false);
+let observer: MutationObserver | null = null;
+
+const updateDarkMode = () => {
+  isDark.value = document.documentElement.classList.contains("dark");
+};
+
+// 滚动时毛玻璃透明度变化：滚动 50px 内透明，超过 50px 逐渐变为半透明
+const headerStyle = computed(() => {
+  if (isDark.value) {
+    const opacity = Math.min(scrollY.value / 50, 1);
+    return {
+      backgroundColor: `rgba(17, 24, 39, ${0.85 + opacity * 0.1})`,
+    };
+  }
+  const opacity = Math.min(scrollY.value / 50, 1);
+  return {
+    backgroundColor: `rgba(255, 255, 255, ${0.8 + opacity * 0.15})`,
+  };
+});
+
+const handleScroll = () => {
+  scrollY.value = window.scrollY;
+};
 
 const closeMenu = () => {
   isMenuOpen.value = false;
@@ -25,27 +52,30 @@ const handleClickOutside = (event: MouseEvent) => {
 
 // 在组件挂载时添加事件监听
 onMounted(() => {
+  updateDarkMode();
+  // 监听暗色模式变化
+  const observer = new MutationObserver(updateDarkMode);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+
+  window.addEventListener("scroll", handleScroll, { passive: true });
   window.addEventListener("click", handleClickOutside);
   window.addEventListener("keydown", handleKeydown);
 });
 
 // 在组件卸载时移除事件监听，防止内存泄漏
 onUnmounted(() => {
+  if (observer) observer.disconnect();
+  window.removeEventListener("scroll", handleScroll);
   window.removeEventListener("click", handleClickOutside);
   window.removeEventListener("keydown", handleKeydown);
 });
 
 const navItems = [
   { name: "首页", path: "/" },
-  {
-    name: "项目",
-    path: "/projects",
-    children: [
-      { name: "实用工具", path: "/projects#tools" },
-      { name: "个人导航", path: "/projects#bookmarks" },
-      { name: "个人站点", path: "/projects#sites" },
-    ],
-  },
+  { name: "项目", path: "/projects" },
   { name: "技能", path: "/skills" },
   { name: "联系", path: "/contact" },
 ];
@@ -53,12 +83,59 @@ const navItems = [
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value;
 };
+
+// 下划线指示器
+const indicatorStyle = ref({ left: "0px", width: "0px" });
+const navRefs = ref<{ [key: string]: HTMLElement | null }>({});
+
+const updateIndicator = () => {
+  nextTick(() => {
+    const activeItem = navItems.find((item) => route.path === item.path);
+    if (activeItem && navRefs.value[activeItem.path]) {
+      const el = navRefs.value[activeItem.path];
+      if (el) {
+        const parent = el.parentElement;
+        if (parent) {
+          const parentRect = parent.getBoundingClientRect();
+          const elRect = el.getBoundingClientRect();
+          indicatorStyle.value = {
+            left: `${elRect.left - parentRect.left}px`,
+            width: `${elRect.width}px`,
+          };
+        }
+      }
+    }
+  });
+};
+
+// 监听路由变化更新指示器
+watch(() => route.path, updateIndicator, { immediate: true });
+watch(() => route.path, () => nextTick(updateIndicator));
+
+// 波纹效果
+const rippleKey = ref(0);
+const activeRipple = ref<{ x: number; y: number } | null>(null);
+
+const handleNavClick = (e: MouseEvent) => {
+  const target = e.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  activeRipple.value = { x, y };
+  rippleKey.value++;
+  setTimeout(() => {
+    activeRipple.value = null;
+  }, 600);
+};
 </script>
 
 <template>
   <header
-    class="fixed w-full top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm"
+    class="fixed w-full top-0 z-50 backdrop-blur-md transition-colors duration-300"
+    :style="headerStyle"
   >
+    <!-- 顶部 1px 淡紫-淡粉渐变描边 -->
+    <div class="header-border"></div>
     <nav class="container mx-auto px-4 py-3 md:py-4">
       <div class="flex items-center justify-between">
         <router-link to="/" class="logo-link group relative overflow-hidden">
@@ -70,15 +147,25 @@ const toggleMenu = () => {
         </router-link>
 
         <!-- 桌面端导航 -->
-        <div class="hidden md:flex items-center space-x-6">
+        <div class="hidden md:flex items-center relative">
+          <!-- 下划线指示器 -->
+          <div class="nav-indicator" :style="indicatorStyle"></div>
           <router-link
             v-for="item in navItems"
             :key="item.path"
+            :ref="(el) => { navRefs[item.path] = el as HTMLElement; }"
             :to="item.path"
             class="nav-link"
-            :class="{ 'text-primary': route.path === item.path }"
+            @click="handleNavClick"
           >
             {{ item.name }}
+            <!-- 波纹效果 -->
+            <span
+              v-if="activeRipple"
+              :key="rippleKey"
+              class="nav-ripple"
+              :style="{ left: activeRipple.x + 'px', top: activeRipple.y + 'px' }"
+            ></span>
           </router-link>
           <ThemeToggle />
         </div>
@@ -147,8 +234,86 @@ const toggleMenu = () => {
 </template>
 
 <style scoped>
+/* 顶部 1px 淡紫-淡粉渐变描边 */
+.header-border {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(168, 85, 247, 0.6) 0%,
+    rgba(236, 72, 153, 0.8) 50%,
+    rgba(168, 85, 247, 0.6) 100%
+  );
+  background-size: 200% 100%;
+  animation: borderShimmer 4s ease-in-out infinite;
+}
+
+@keyframes borderShimmer {
+  0%, 100% {
+    background-position: 0% 50%;
+    opacity: 0.8;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+}
+
+/* 下划线指示器 */
+.nav-indicator {
+  position: absolute;
+  bottom: 4px;
+  height: 2px;
+  background: linear-gradient(90deg, #a855f7, #ec4899);
+  border-radius: 1px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+
 .nav-link {
-  @apply text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors;
+  position: relative;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  color: #6b7280;
+  transition: all 0.3s ease;
+  background: transparent;
+  overflow: hidden;
+}
+
+.nav-link:hover {
+  color: white;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.85), rgba(236, 72, 153, 0.85));
+}
+
+.dark .nav-link {
+  color: #d1d5db;
+}
+
+.dark .nav-link:hover {
+  color: white;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.9), rgba(236, 72, 153, 0.9));
+}
+
+/* 波纹效果 */
+.nav-ripple {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%) scale(0);
+  animation: ripple-expand 0.6s ease-out forwards;
+  pointer-events: none;
+}
+
+@keyframes ripple-expand {
+  to {
+    transform: translate(-50%, -50%) scale(20);
+    opacity: 0;
+  }
 }
 
 .mobile-menu {

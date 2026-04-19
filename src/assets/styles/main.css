@@ -14,6 +14,27 @@
     format("woff2");
 }
 
+/* 毛玻璃渐变背景 - 淡紫淡粉主题 */
+.frosted-bg {
+  background: linear-gradient(
+    135deg,
+    rgba(233, 213, 255, 0.7) 0%,
+    rgba(255, 231, 238, 0.65) 50%,
+    rgba(228, 237, 255, 0.7) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.dark .frosted-bg {
+  background: linear-gradient(
+    135deg,
+    rgba(88, 28, 135, 0.5) 0%,
+    rgba(131, 24, 67, 0.4) 50%,
+    rgba(30, 58, 138, 0.45) 100%
+  );
+}
+
 @layer base {
   html {
     font-family:
@@ -31,6 +52,40 @@
 
   body {
     @apply bg-main text-primary antialiased;
+    /* 淡紫淡粉渐变背景 */
+    background: linear-gradient(
+      135deg,
+      rgba(233, 213, 255, 0.75) 0%,
+      rgba(255, 231, 238, 0.7) 25%,
+      rgba(255, 243, 245, 0.75) 50%,
+      rgba(228, 237, 255, 0.7) 75%,
+      rgba(233, 213, 255, 0.75) 100%
+    ) !important;
+    min-height: 100vh;
+  }
+
+  .dark body,
+  body.dark {
+    background: linear-gradient(
+      135deg,
+      rgba(88, 28, 135, 0.6) 0%,
+      rgba(131, 24, 67, 0.5) 30%,
+      rgba(55, 10, 95, 0.55) 70%,
+      rgba(30, 58, 138, 0.5) 100%
+    ) !important;
+  }
+
+  /* 暗色模式媒体查询 */
+  @media (prefers-color-scheme: dark) {
+    body {
+      background: linear-gradient(
+        135deg,
+        rgba(88, 28, 135, 0.6) 0%,
+        rgba(131, 24, 67, 0.5) 30%,
+        rgba(55, 10, 95, 0.55) 70%,
+        rgba(30, 58, 138, 0.5) 100%
+      ) !important;
+    }
   }
 
   /* 移动端优化 */

@@ -14,33 +14,49 @@ interface Skill {
 
 const skills = ref<Skill[]>([
   {
-    category: "后端开发",
-    description: "专注于Java生态系统，构建高性能、可扩展的服务端应用",
+    category: "Java全栈开发",
+    description: "专注于Java生态系统与现代化前端技术，构建高性能、可扩展的全栈应用",
     items: [
       { name: "Java", level: 90, description: "核心语言" },
       { name: "Spring Boot", level: 85, description: "Web应用开发" },
       { name: "MySQL", level: 80, description: "关系型数据库" },
       { name: "Redis", level: 75, description: "缓存与数据存储" },
-    ],
-  },
-  {
-    category: "前端开发",
-    description: "构建现代化的用户界面，专注于Vue.js生态系统",
-    items: [
       { name: "Vue.js", level: 80, description: "前端框架" },
-      { name: "TypeScript", level: 75, description: "类型系统" },
-      { name: "Tailwind CSS", level: 85, description: "样式框架" },
       { name: "HTML/CSS", level: 80, description: "网页基础" },
-    ],
-  },
-  {
-    category: "开发工具",
-    description: "熟练使用现代开发工具，提高开发效率",
-    items: [
       { name: "Git", level: 85, description: "版本控制" },
       { name: "Docker", level: 75, description: "容器化部署" },
       { name: "Linux", level: 80, description: "服务器运维" },
       { name: "IntelliJ IDEA", level: 85, description: "开发工具" },
+    ],
+  },
+  {
+    category: "剪辑",
+    description: "视频剪辑与后期制作",
+    items: [
+      { name: "Premiere Pro", level: 70, description: "视频剪辑" },
+      { name: "After Effects", level: 65, description: "特效制作" },
+      { name: "剪映", level: 80, description: "短视频剪辑" },
+      { name: "Photoshop", level: 75, description: "图像处理" },
+    ],
+  },
+  {
+    category: "嵌入式",
+    description: "物联网设备开发与硬件编程，实现软硬件深度结合",
+    items: [
+      { name: "STM32", level: 45, description: "ARM微控制器" },
+      { name: "嵌入式C", level: 80, description: "底层编程" },
+      { name: "电路原理图", level: 65, description: "硬件设计" },
+      { name: "PCB设计", level: 30, description: "电路板布局" },
+    ],
+  },
+  {
+    category: "Python",
+    description: "脚本开发、数据分析与后端服务构建",
+    items: [
+      { name: "Python", level: 85, description: "核心语言" },
+      { name: "Flask", level: 30, description: "轻量级框架" },
+      { name: "PyCharm", level: 45, description: "开发工具" },
+      { name: "Pygame", level: 55, description: "游戏开发" },
     ],
   },
 ]);
@@ -63,7 +79,7 @@ onMounted(() => {
         <h1
           class="text-3xl md:text-4xl font-bold text-center mb-10 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent animate-gradient"
         >
-          技能栈
+          技能
         </h1>
       </PageTransition>
 
