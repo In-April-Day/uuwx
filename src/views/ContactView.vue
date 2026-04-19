@@ -12,9 +12,16 @@ interface ContactItem {
 
 const contactList = ref<ContactItem[]>([
   {
+    name: "手机号",
+    value: "19831158485",
+    href: "tel:19831158485",
+    icon: "phone",
+    color: "from-green-500 to-emerald-500",
+  },
+  {
     name: "邮箱",
-    value: siteConfig.social.email || "884738667@qq.com",
-    href: "mailto:884738667@qq.com",
+    value: "dk884738667@163.com",
+    href: "mailto:dk884738667@163.com",
     icon: "email",
     color: "from-rose-500 to-pink-500",
   },
@@ -70,9 +77,19 @@ const copyToClipboard = async (item: ContactItem) => {
               class="w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center shadow-sm"
               :class="item.color"
             >
+              <!-- 手机 -->
+              <svg
+                v-if="item.icon === 'phone'"
+                class="w-6 h-6 text-white"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
               <!-- 邮箱 -->
               <svg
-                v-if="item.icon === 'email'"
+                v-else-if="item.icon === 'email'"
                 class="w-6 h-6 text-white"
                 fill="none"
                 stroke="currentColor"
