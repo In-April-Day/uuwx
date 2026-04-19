@@ -23,7 +23,7 @@ const handleScroll = () => {
 
 // ==================== 打字机效果 ====================
 const typewriterText = ref("");
-const fullText = "100101101000";
+const fullText = "000001011111";
 let typeIndex = 0;
 
 const startTypewriter = () => {
@@ -68,21 +68,21 @@ const handleCapsuleLeave = () => {
 // 公转元素配置：以火箭为圆心，固定轨道半径，半径大于火箭边界（约280px）
 // 三个元素均匀分布在不同轨道，只能在各自轨道上运行
 const orbitingPlanets = ref([
-  { 
+  {
     name: "planet",      // 行星轨道SVG - 最小轨道
     angle: 0,            // 初始角度（度）
     speed: 0.2,          // 公转速度（度/帧）- 较慢
     radius: 720,         // 轨道半径（px）- 大于火箭边界
     size: 100            // 球壳尺寸
   },
-  { 
+  {
     name: "nebula",      // 星云旋转动画 - 中等轨道
     angle: 150,          // 初始角度 - 间隔较远
     speed: 0.2,         // 公转速度 - 中速
     radius: 680,         // 轨道半径 - 中等
     size: 110            // 球壳尺寸
   },
-  { 
+  {
     name: "pyramid",     // 3D金字塔 - 最大轨道
     angle: 300,          // 初始角度 - 均匀分布
     speed: 0.2,          // 公转速度 - 最慢
@@ -247,7 +247,7 @@ const availableCommands: { [key: string]: string | (() => void) } = {
 const executeCommand = () => {
   const cmd = consoleInput.value.trim().toLowerCase();
   consoleOutput.value.push(`$ ${consoleInput.value}`);
-  
+
   if (cmd === "clear") {
     consoleOutput.value = [];
   } else if (cmd === "projects") {
@@ -264,7 +264,7 @@ const executeCommand = () => {
   } else if (cmd) {
     consoleOutput.value.push(`❌ 未知命令: ${cmd}`);
   }
-  
+
   consoleInput.value = "";
 };
 
@@ -289,7 +289,7 @@ onMounted(() => {
   window.addEventListener("click", triggerExplosion);
 
   animate(); // 包含行星环绕动画
-  
+
   dropIntervalId = window.setInterval(spawnCodeDrop, 500);
 });
 
@@ -298,7 +298,7 @@ onUnmounted(() => {
   window.removeEventListener("click", triggerExplosion);
   cancelAnimationFrame(animationFrameId);
   clearInterval(dropIntervalId);
-  
+
   // 销毁背景组件
   if (earthBackgroundRef.value) {
     earthBackgroundRef.value.destroy?.();
@@ -310,20 +310,20 @@ onUnmounted(() => {
 <template>
   <div class="space-station-page" @click="triggerExplosion">
     <!-- Mars3D 3D 地球背景层 -->
-    <MarsEarthBackground 
+    <MarsEarthBackground
       ref="earthBackgroundRef"
       :auto-rotate="true"
       :rotate-speed="0.003"
       :opacity="0.8"
     />
-    
+
     <div class="bg-layer">
       <div class="nebula-bg"></div>
-      
+
       <div class="mid-layer">
-        <span 
-          v-for="i in 15" 
-          :key="i" 
+        <span
+          v-for="i in 15"
+          :key="i"
           class="floating-code"
           :style="{
             left: `${(i * 7) % 100}%`,
@@ -336,7 +336,7 @@ onUnmounted(() => {
           {{ ["{ }", "[ ]", "( )", "=>", "< />", "0x1A", "&&", "||", "++", "/* */"][i % 10] }}
         </span>
       </div>
-      
+
       <div class="near-layer">
         <svg class="geo-lines" viewBox="0 0 1000 600" preserveAspectRatio="none">
           <path d="M0,150 Q250,50 500,150 T1000,100" stroke="url(#lineGrad1)" />
@@ -368,9 +368,9 @@ onUnmounted(() => {
       </div>
 
       <div class="stars-container">
-        <div 
-          v-for="i in 20" 
-          :key="i" 
+        <div
+          v-for="i in 20"
+          :key="i"
           class="star"
           :class="{ 'star-bright': i % 3 === 0 }"
           :style="{
@@ -384,9 +384,9 @@ onUnmounted(() => {
     </div>
 
     <div class="code-rain">
-      <div 
-        v-for="drop in codeDrops" 
-        :key="drop.id" 
+      <div
+        v-for="drop in codeDrops"
+        :key="drop.id"
         class="code-drop"
         :style="{
           left: `${drop.x}px`,
@@ -398,13 +398,13 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div 
-      v-for="exp in explosions" 
-      :key="exp.id" 
+    <div
+      v-for="exp in explosions"
+      :key="exp.id"
       class="explosion"
     >
-      <div 
-        v-for="(p, idx) in exp.particles" 
+      <div
+        v-for="(p, idx) in exp.particles"
         :key="idx"
         class="explosion-particle"
         :style="{
@@ -417,22 +417,22 @@ onUnmounted(() => {
     </div>
 
     <div class="main-content" :class="{ loaded: isLoaded }">
-      
+
       <nav class="glass-nav" :class="{ scrolled: scrollY > 50 }">
         <div class="nav-inner">
           <router-link to="/" class="ascii-logo">
             <span class="logo-text">
-              <span v-for="(char, idx) in 'HANDSOME'" :key="idx" 
+              <span v-for="(char, idx) in 'HANDSOME'" :key="idx"
                 :style="{ animationDelay: `${idx * 0.1}s` }"
                 class="logo-char"
               >{{ char }}</span>
             </span>
             <span class="logo-glow"></span>
           </router-link>
-          
+
           <div class="nav-items">
-            <router-link 
-              v-for="item in navItems" 
+            <router-link
+              v-for="item in navItems"
               :key="item.path"
               :to="item.path"
               class="nav-item"
@@ -451,8 +451,8 @@ onUnmounted(() => {
         <!-- 行星环绕容器 -->
         <div class="planets-container">
           <!-- 行星1：PlanetOrbit + 球形背景壳 -->
-          <div 
-            class="planet-item planet-1 cursor-pointer hover:scale-[1.5] transition-transform duration-300" 
+          <div
+            class="planet-item planet-1 cursor-pointer hover:scale-[1.5] transition-transform duration-300"
             :style="planet1Style"
             @click="handlePlanetClick('planet')"
             @mouseenter="hoveredPlanet = 'planet'"
@@ -471,8 +471,8 @@ onUnmounted(() => {
           </div>
 
           <!-- 行星2：NebulaLoader + 球形背景壳 -->
-          <div 
-            class="planet-item planet-2 cursor-pointer hover:scale-[1.5] transition-transform duration-300" 
+          <div
+            class="planet-item planet-2 cursor-pointer hover:scale-[1.5] transition-transform duration-300"
             :style="planet2Style"
             @click="handlePlanetClick('nebula')"
             @mouseenter="hoveredPlanet = 'nebula'"
@@ -491,8 +491,8 @@ onUnmounted(() => {
           </div>
 
           <!-- 行星3：PyramidLoader + 球形背景壳 -->
-          <div 
-            class="planet-item planet-3 cursor-pointer hover:scale-[3] transition-transform duration-300" 
+          <div
+            class="planet-item planet-3 cursor-pointer hover:scale-[3] transition-transform duration-300"
             :style="planet3Style"
             @click="handlePlanetClick('pyramid')"
             @mouseenter="hoveredPlanet = 'pyramid'"
@@ -513,7 +513,7 @@ onUnmounted(() => {
 
         <!-- 中心火箭 -->
         <div class="capsule-wrapper">
-          <div 
+          <div
             ref="capsuleRef"
             class="rocket-capsule"
             :style="{
@@ -532,7 +532,7 @@ onUnmounted(() => {
             <div class="rocket-body">
               <div class="avatar-section">
                 <div class="avatar-wrapper">
-                  <img 
+                  <img
                     src="https://q.qlogo.cn/headimg_dl?dst_uin=884738667&spec=640&img_type=jpg"
                     alt="头像"
                     class="avatar-img"
@@ -545,10 +545,10 @@ onUnmounted(() => {
               <div class="profile-section">
                 <h1 class="profile-name">{{ siteConfig.name }}</h1>
                 <p class="typewriter-text">{{ typewriterText }}<span class="cursor">|</span></p>
-                
+
                 <div class="skill-tags">
-                  <button 
-                    v-for="skill in skillTags" 
+                  <button
+                    v-for="skill in skillTags"
                     :key="skill"
                     class="skill-tag"
                     @click="scrollToConsole"
@@ -584,17 +584,17 @@ onUnmounted(() => {
             </div>
             <span class="terminal-title">user@space-station:~$</span>
           </div>
-          
+
           <div class="terminal-body">
             <div class="console-output">
               <p v-for="(line, idx) in consoleOutput" :key="idx" class="console-line">
                 {{ line }}
               </p>
             </div>
-            
+
             <div class="console-input-line">
               <span class="prompt">➜</span>
-              <input 
+              <input
                 v-model="consoleInput"
                 type="text"
                 class="console-input"
@@ -650,7 +650,7 @@ onUnmounted(() => {
 
 /* 悬停时球壳发光增强 */
 .planet-item:hover .planet-sphere {
-  box-shadow: 
+  box-shadow:
     0 0 60px rgba(168, 85, 247, 0.8),
     0 0 120px rgba(168, 85, 247, 0.5),
     inset 0 0 50px rgba(255, 255, 255, 0.15);
@@ -674,7 +674,7 @@ onUnmounted(() => {
   /* 边框发光 */
   border: 1px solid rgba(255, 255, 255, 0.15);
   /* 内部阴影增加立体感 */
-  box-shadow: 
+  box-shadow:
     inset 0 0 30px rgba(255, 255, 255, 0.05),
     inset 0 -10px 30px rgba(0, 0, 0, 0.2);
   /* 确保内容不超出 */
@@ -701,7 +701,7 @@ onUnmounted(() => {
     rgba(87, 40, 204, 0.25) 70%,
     rgba(59, 130, 246, 0.2) 100%
   );
-  box-shadow: 
+  box-shadow:
     0 0 40px rgba(168, 85, 247, 0.5),
     0 0 80px rgba(168, 85, 247, 0.3),
     inset 0 0 30px rgba(255, 255, 255, 0.08),
@@ -720,7 +720,7 @@ onUnmounted(() => {
     rgba(139, 92, 246, 0.25) 60%,
     rgba(236, 72, 153, 0.2) 100%
   );
-  box-shadow: 
+  box-shadow:
     0 0 50px rgba(255, 191, 72, 0.4),
     0 0 100px rgba(190, 74, 29, 0.25),
     inset 0 0 40px rgba(255, 255, 255, 0.1),
@@ -739,7 +739,7 @@ onUnmounted(() => {
     rgba(210, 40, 253, 0.25) 60%,
     rgba(47, 37, 133, 0.2) 100%
   );
-  box-shadow: 
+  box-shadow:
     0 0 45px rgba(43, 222, 172, 0.4),
     0 0 90px rgba(210, 40, 253, 0.3),
     inset 0 0 35px rgba(255, 255, 255, 0.08),
@@ -828,7 +828,7 @@ onUnmounted(() => {
 .nebula-bg {
   position: absolute;
   inset: -50%;
-  background: 
+  background:
     radial-gradient(ellipse at 20% 20%, rgba(168, 85, 247, 0.25) 0%, transparent 50%),
     radial-gradient(ellipse at 80% 30%, rgba(236, 72, 153, 0.2) 0%, transparent 50%),
     radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
@@ -1161,16 +1161,16 @@ onUnmounted(() => {
   transform: translateX(-50%);
   width: 70px;
   height: 65px;
-  background: linear-gradient(180deg, 
-    #ec4899 0%, 
-    #c026d3 25%, 
-    #a855f7 50%, 
-    #7c3aed 75%, 
+  background: linear-gradient(180deg,
+    #ec4899 0%,
+    #c026d3 25%,
+    #a855f7 50%,
+    #7c3aed 75%,
     #4f46e5 100%
   );
   clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
   animation: coneSpin 3s linear infinite;
-  box-shadow: 
+  box-shadow:
     0 0 30px rgba(236, 72, 153, 0.6),
     inset 0 -20px 40px rgba(139, 92, 246, 0.5);
 }
@@ -1179,9 +1179,9 @@ onUnmounted(() => {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, 
-    transparent 0%, 
-    rgba(255,255,255,0.4) 30%, 
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,0.4) 30%,
     transparent 50%,
     rgba(0,0,0,0.2) 70%,
     transparent 100%
@@ -1202,7 +1202,7 @@ onUnmounted(() => {
 /* 火箭主体 */
 .rocket-body {
   width: 100%;
-  background: linear-gradient(180deg, 
+  background: linear-gradient(180deg,
     rgba(168, 85, 247, 0.3) 0%,
     rgba(139, 92, 246, 0.25) 30%,
     rgba(236, 72, 153, 0.2) 100%
@@ -1211,7 +1211,7 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 20px 20px 10px 10px;
   padding: 1.5rem 1rem;
-  box-shadow: 
+  box-shadow:
     0 0 40px rgba(168, 85, 247, 0.4),
     inset 0 0 30px rgba(255, 255, 255, 0.05);
 }
@@ -1421,7 +1421,7 @@ onUnmounted(() => {
   border-radius: 12px;
   border: 1px solid rgba(168, 85, 247, 0.3);
   overflow: hidden;
-  box-shadow: 
+  box-shadow:
     0 0 40px rgba(168, 85, 247, 0.2),
     inset 0 0 60px rgba(0, 0, 0, 0.3);
 }
@@ -1504,54 +1504,54 @@ onUnmounted(() => {
   .glass-nav {
     padding: 0.75rem 1rem;
   }
-  
+
   .ascii-logo {
     font-size: 1.2rem;
   }
-  
+
   .nav-items {
     gap: 0.25rem;
   }
-  
+
   .nav-item {
     padding: 0.4rem 0.6rem;
     font-size: 0.85rem;
   }
-  
+
   .nav-icon {
     display: none;
   }
-  
+
   .hero-section {
     padding: 5rem 1rem 2rem;
   }
-  
+
   .rocket-capsule {
     width: 240px;
   }
-  
+
   .rocket-body {
     padding: 1rem 0.8rem;
   }
-  
+
   .rocket-nose {
     width: 60px;
     height: 40px;
   }
-  
+
   .avatar-wrapper {
     width: 90px;
     height: 90px;
   }
-  
+
   .profile-name {
     font-size: 1.5rem;
   }
-  
+
   .skill-tags {
     gap: 0.3rem;
   }
-  
+
   .skill-tag {
     padding: 0.3rem 0.6rem;
     font-size: 0.75rem;

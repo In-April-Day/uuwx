@@ -1,6 +1,6 @@
 export const siteConfig = {
   // 基本信息
-  name: "name", // 作者名称
+  name: "四月十六", // 作者名称
   title: "Java后端开发工程师", // 职位头衔
   siteName: "Handsome | Java后端开发工程师", // 网站标题
   siteDescription:
