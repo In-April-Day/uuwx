@@ -7,34 +7,13 @@ import { fontConfig } from "./src/config/font";
 
 export default defineConfig({
   base: "/",
-  build: {
-    outDir: "dist",
-    assetsDir: "assets",
-    minify: "terser",
-    sourcemap: false,
-    chunkSizeWarningLimit: 1500,
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-        pure_funcs: ["console.log"],
-      },
-      format: {
-        comments: /@license/i,
-      },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
     },
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ["vue", "vue-router"],
-        },
-        chunkFileNames: "assets/js/[name]-[hash].js",
-        entryFileNames: "assets/js/[name]-[hash].js",
-        assetFileNames: "assets/[ext]/[name]-[hash].[ext]",
-      },
-    },
-    cssCodeSplit: true,
-    cssMinify: true,
+  },
+  optimizeDeps: {
+    include: ["mars3d", "mars3d-cesium"],
   },
   plugins: [
     vue(),
@@ -87,10 +66,35 @@ export default defineConfig({
       },
     }),
   ],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src"),
+  build: {
+    target: "esnext",
+    outDir: "dist",
+    assetsDir: "assets",
+    minify: "terser",
+    sourcemap: false,
+    chunkSizeWarningLimit: 1500,
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ["console.log"],
+      },
+      format: {
+        comments: /@license/i,
+      },
     },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["vue", "vue-router"],
+        },
+        chunkFileNames: "assets/js/[name]-[hash].js",
+        entryFileNames: "assets/js/[name]-[hash].js",
+        assetFileNames: "assets/[ext]/[name]-[hash].[ext]",
+      },
+    },
+    cssCodeSplit: true,
+    cssMinify: true,
   },
   server: {},
   define: {
