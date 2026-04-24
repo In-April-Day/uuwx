@@ -5,13 +5,10 @@ import { siteConfig } from "@/config/site";
 import PlanetOrbit from "@/components/PlanetOrbit.vue";
 import NebulaLoader from "@/components/NebulaLoader.vue";
 import PyramidLoader from "@/components/PyramidLoader.vue";
-import MarsEarthBackground from "@/components/MarsEarthBackground.vue";
+import GalaxyBackground from "@/components/GalaxyBackground.vue";
 
 // 路由
 const router = useRouter();
-
-// 背景组件引用
-const earthBackgroundRef = ref<InstanceType<typeof MarsEarthBackground> | null>(null);
 
 // ==================== 背景层状态 ====================
 const scrollY = ref(0);
@@ -65,56 +62,110 @@ const handleCapsuleLeave = () => {
 };
 
 // ==================== 行星公转系统 ====================
-// 公转元素配置：以火箭为圆心，固定轨道半径，半径大于火箭边界（约280px）
-// 三个元素均匀分布在不同轨道，只能在各自轨道上运行
+// 三层嵌套轨道系统：
+// - 中心：火箭（背景板）
+// - 轨道1（项目 planet）：围绕火箭，椭圆轨道
+// - 轨道2（联系方式 nebula）：围绕火箭，圆形轨道
+// - 轨道3（技能 pyramid）：围绕轨道1（项目），圆形轨道
+
+// 轨道配置
+interface OrbitConfig {
+  shape: 'ellipse' | 'circle';
+  radius: number;
+  radiusY?: number;
+  rotation: number;
+  offsetX: number;
+  offsetY: number;
+  parent?: string;
+}
+
+const orbitConfigs: Record<string, OrbitConfig> = {
+  // 项目轨道 - 椭圆轨道，围绕中心火箭
+  planet: {
+    shape: 'ellipse',
+    radius: 670,        // 椭圆长轴 (rx)
+    radiusY: 350,       // 椭圆短轴 (ry)
+    rotation: -9,       // 旋转角度
+    offsetX: 0,
+    offsetY: 0,
+  },
+  // 联系方式轨道 - 圆形轨道，围绕中心火箭
+  nebula: {
+    shape: 'circle',
+    radius: 300,        
+    rotation: 0,
+    offsetX: 0,
+    offsetY: 0,
+  },
+  // 技能轨道 - 圆形轨道，围绕项目（planet）
+  pyramid: {
+    shape: 'circle',
+    radius: 160,        // 圆形半径（相对于项目的位置）
+    rotation: 0,
+    offsetX: 0,
+    offsetY: 0,
+    parent: 'planet',   // 环绕的目标
+  },
+};
+
 const orbitingPlanets = ref([
   {
-    name: "planet",      // 行星轨道SVG - 最小轨道
+    name: "planet",      // 项目 - 椭圆轨道
     angle: 0,            // 初始角度（度）
-    speed: 0.2,          // 公转速度（度/帧）- 较慢
-    radius: 720,         // 轨道半径（px）- 大于火箭边界
-    size: 100            // 球壳尺寸
+    speed: 0.15,         // 公转速度
+    size: 100
   },
   {
-    name: "nebula",      // 星云旋转动画 - 中等轨道
-    angle: 150,          // 初始角度 - 间隔较远
-    speed: 0.2,         // 公转速度 - 中速
-    radius: 680,         // 轨道半径 - 中等
-    size: 110            // 球壳尺寸
+    name: "nebula",      // 联系方式 - 圆形轨道
+    angle: 120,          // 初始角度
+    speed: 0.2,          // 公转速度
+    size: 110
   },
   {
-    name: "pyramid",     // 3D金字塔 - 最大轨道
-    angle: 300,          // 初始角度 - 均匀分布
-    speed: 0.2,          // 公转速度 - 最慢
-    radius: 740,         // 轨道半径 - 最大
-    size: 90             // 球壳尺寸
+    name: "pyramid",     // 技能 - 围绕项目
+    angle: 240,          // 初始角度
+    speed: 0.25,         // 公转速度（相对较快）
+    size: 90
   }
 ]);
 
 // 计算属性：生成每个行星的样式
-const planet1Style = computed(() => {
-  const planet = orbitingPlanets.value[0];
+const getPlanetStyle = (planet: typeof orbitingPlanets.value[0]) => {
+  const config = orbitConfigs[planet.name];
+  if (!config) return { transform: 'translate(0, 0)' };
+  
   const radian = (planet.angle * Math.PI) / 180;
-  const x = Math.cos(radian) * planet.radius;
-  const y = Math.sin(radian) * planet.radius;
-  return { transform: `translate(${x}px, ${y}px)` };
-});
+  
+  let x: number, y: number;
+  
+  // 计算相对于轨道中心的位置
+  if (config.shape === 'ellipse') {
+    x = Math.cos(radian) * config.radius;
+    y = Math.sin(radian) * (config.radiusY ?? config.radius);
+  } else {
+    x = Math.cos(radian) * config.radius;
+    y = Math.sin(radian) * config.radius;
+  }
+  
+  // 如果是技能轨道，需要加上项目的位置
+  if (config.parent === 'planet') {
+    const parentPlanet = orbitingPlanets.value[0];
+    const parentConfig = orbitConfigs.planet;
+    const parentRadian = (parentPlanet.angle * Math.PI) / 180;
+    const parentX = Math.cos(parentRadian) * parentConfig.radius;
+    const parentY = Math.sin(parentRadian) * (parentConfig.radiusY ?? parentConfig.radius);
+    x += parentX;
+    y += parentY;
+  }
+  
+  return { 
+    transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))` 
+  };
+};
 
-const planet2Style = computed(() => {
-  const planet = orbitingPlanets.value[1];
-  const radian = (planet.angle * Math.PI) / 180;
-  const x = Math.cos(radian) * planet.radius;
-  const y = Math.sin(radian) * planet.radius;
-  return { transform: `translate(${x}px, ${y}px)` };
-});
-
-const planet3Style = computed(() => {
-  const planet = orbitingPlanets.value[2];
-  const radian = (planet.angle * Math.PI) / 180;
-  const x = Math.cos(radian) * planet.radius;
-  const y = Math.sin(radian) * planet.radius;
-  return { transform: `translate(${x}px, ${y}px)` };
-});
+const planet1Style = computed(() => getPlanetStyle(orbitingPlanets.value[0]));
+const planet2Style = computed(() => getPlanetStyle(orbitingPlanets.value[1]));
+const planet3Style = computed(() => getPlanetStyle(orbitingPlanets.value[2]));
 
 // 更新公转位置（每帧调用）
 const updateOrbitPositions = () => {
@@ -298,90 +349,25 @@ onUnmounted(() => {
   window.removeEventListener("click", triggerExplosion);
   cancelAnimationFrame(animationFrameId);
   clearInterval(dropIntervalId);
-
-  // 销毁背景组件
-  if (earthBackgroundRef.value) {
-    earthBackgroundRef.value.destroy?.();
-  }
 });
 
 </script>
 
 <template>
   <div class="space-station-page" @click="triggerExplosion">
-    <!-- Mars3D 3D 地球背景层 -->
-    <MarsEarthBackground
-      ref="earthBackgroundRef"
-      :auto-rotate="true"
-      :rotate-speed="0.003"
-      :opacity="0.8"
+    <!-- 星空银河背景 -->
+    <GalaxyBackground
+      :mouse-interaction="true"
+      :density="0.6"
+      :glow-intensity="0.4"
+      :saturation="0.5"
+      :hue-shift="150"
+      :twinkle-intensity="0.4"
+      :rotation-speed="0.05"
+      :star-speed="0.3"
+      :speed="0.5"
+      :repulsion-strength="1"
     />
-
-    <div class="bg-layer">
-      <div class="nebula-bg"></div>
-
-      <div class="mid-layer">
-        <span
-          v-for="i in 15"
-          :key="i"
-          class="floating-code"
-          :style="{
-            left: `${(i * 7) % 100}%`,
-            top: `${(i * 11) % 100}%`,
-            animationDelay: `${i * 0.3}s`,
-            opacity: 0.15 + (i % 3) * 0.05,
-            fontSize: `${0.8 + (i % 4) * 0.3}rem`
-          }"
-        >
-          {{ ["{ }", "[ ]", "( )", "=>", "< />", "0x1A", "&&", "||", "++", "/* */"][i % 10] }}
-        </span>
-      </div>
-
-      <div class="near-layer">
-        <svg class="geo-lines" viewBox="0 0 1000 600" preserveAspectRatio="none">
-          <path d="M0,150 Q250,50 500,150 T1000,100" stroke="url(#lineGrad1)" />
-          <path d="M0,250 Q300,200 600,280 T1000,220" stroke="url(#lineGrad2)" />
-          <path d="M0,380 Q400,320 700,400 T1000,350" stroke="url(#lineGrad3)" />
-          <path d="M0,500 Q350,450 650,520 T1000,480" stroke="url(#lineGrad1)" />
-          <circle cx="200" cy="120" r="2" fill="#a855f7" opacity="0.4"/>
-          <circle cx="450" cy="180" r="1.5" fill="#ec4899" opacity="0.3"/>
-          <circle cx="700" cy="350" r="2" fill="#3b82f6" opacity="0.4"/>
-          <circle cx="850" cy="280" r="1.5" fill="#a855f7" opacity="0.3"/>
-          <defs>
-            <linearGradient id="lineGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#a855f7" stop-opacity="0.5"/>
-              <stop offset="50%" stop-color="#ec4899" stop-opacity="0.3"/>
-              <stop offset="100%" stop-color="#a855f7" stop-opacity="0.5"/>
-            </linearGradient>
-            <linearGradient id="lineGrad2" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#ec4899" stop-opacity="0.4"/>
-              <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.2"/>
-              <stop offset="100%" stop-color="#ec4899" stop-opacity="0.4"/>
-            </linearGradient>
-            <linearGradient id="lineGrad3" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"/>
-              <stop offset="50%" stop-color="#a855f7" stop-opacity="0.2"/>
-              <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.3"/>
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
-
-      <div class="stars-container">
-        <div
-          v-for="i in 20"
-          :key="i"
-          class="star"
-          :class="{ 'star-bright': i % 3 === 0 }"
-          :style="{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animationDelay: `${Math.random() * 15}s`,
-            animationDuration: `${100 + Math.random() * 5}s`
-          }"
-        ></div>
-      </div>
-    </div>
 
     <div class="code-rain">
       <div
@@ -450,7 +436,44 @@ onUnmounted(() => {
       <section class="hero-section">
         <!-- 行星环绕容器 -->
         <div class="planets-container">
-          <!-- 行星1：PlanetOrbit + 球形背景壳 -->
+          <!-- SVG 轨道线 -->
+          <svg class="orbit-paths" viewBox="-500 -300 1000 600" preserveAspectRatio="xMidYMid meet">
+            <!-- 轨道外发光 -->
+            <defs>
+              <filter id="orbitGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                <feMerge>
+                  <feMergeNode in="coloredBlur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            
+            <!-- 轨道1: 项目（椭圆轨道）- 紫色 -->
+            <ellipse 
+              class="orbit-path orbit-path-1"
+              cx="0" cy="0" 
+              rx="670" 
+              ry="350"
+              transform="rotate(-9)"
+              fill="none"
+              stroke="rgba(168, 85, 247, 0.25)"
+              stroke-width="1.5"
+              filter="url(#orbitGlow)"
+            />
+            <!-- 轨道2: 联系方式（圆形轨道）- 粉色 -->
+            <circle
+              class="orbit-path orbit-path-2"
+              cx="0" cy="0" 
+              r="300"
+              fill="none"
+              stroke="rgba(236, 72, 153, 0.2)"
+              stroke-width="1.5"
+              filter="url(#orbitGlow)"
+            />
+          </svg>
+
+          <!-- 行星1：项目 - 椭圆轨道 -->
           <div
             class="planet-item planet-1 cursor-pointer hover:scale-[1.5] transition-transform duration-300"
             :style="planet1Style"
@@ -461,6 +484,16 @@ onUnmounted(() => {
             <div class="planet-sphere sphere-purple">
               <PlanetOrbit />
             </div>
+            <!-- 技能轨道的动态SVG - 围绕项目 -->
+            <svg class="pyramid-orbit-path" viewBox="-200 -200 400 400" preserveAspectRatio="xMidYMid meet">
+              <circle
+                cx="0" cy="0" 
+                r="160"
+                fill="none"
+                stroke="rgba(43, 222, 172, 0.15)"
+                stroke-width="1"
+              />
+            </svg>
             <!-- 悬停提示 -->
             <Transition name="tip-fade">
               <div v-if="hoveredPlanet === 'planet'" class="planet-tooltip">
@@ -523,12 +556,6 @@ onUnmounted(() => {
             @mousemove="handleCapsuleMove"
             @mouseleave="handleCapsuleLeave"
           >
-            <div class="rocket-nose">
-              <div class="cone-wrapper">
-                <div class="cone-body"></div>
-              </div>
-            </div>
-
             <div class="rocket-body">
               <div class="avatar-section">
                 <div class="avatar-wrapper">
@@ -557,18 +584,6 @@ onUnmounted(() => {
                   </button>
                 </div>
               </div>
-            </div>
-
-            <div class="rocket-flames">
-              <div class="flame flame-1"></div>
-              <div class="flame flame-2"></div>
-              <div class="flame flame-3"></div>
-            </div>
-
-            <div class="rocket-fins">
-              <div class="fin fin-left"></div>
-              <div class="fin fin-right"></div>
-              <div class="fin fin-back"></div>
             </div>
           </div>
         </div>
@@ -615,7 +630,7 @@ onUnmounted(() => {
   position: relative;
   min-height: 100vh;
   overflow-x: hidden;
-  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  background: transparent;
   color: white;
 }
 
@@ -628,6 +643,54 @@ onUnmounted(() => {
   width: 0;
   height: 0;
   z-index: 25;
+  /* 添加3D透视效果 */
+  perspective: 1000px;
+  perspective-origin: center center;
+}
+
+/* 椭圆轨道 SVG */
+/* 注意：CSS 尺寸必须与 viewBox 宽高比一致，否则行星位置会和轨道线偏移 */
+.orbit-paths {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 1000px;
+  height: 600px;  /* 改为 600px，与 viewBox "-500 -300 1000 600" 的宽高比一致 */
+  z-index: 24;
+  pointer-events: none;
+}
+
+/* 技能轨道的动态SVG - 围绕项目 */
+.pyramid-orbit-path {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  height: 400px;
+  z-index: 23;
+  pointer-events: none;
+}
+
+/* 轨道线呼吸动画 */
+.orbit-path {
+  animation: orbitPulse 4s ease-in-out infinite;
+}
+
+.orbit-path-1 { animation-delay: 0s; }
+.orbit-path-2 { animation-delay: 0.5s; }
+.orbit-path-3 { animation-delay: 1s; }
+
+@keyframes orbitPulse {
+  0%, 100% { 
+    opacity: 0.6;
+    stroke-width: 2;
+  }
+  50% { 
+    opacity: 1;
+    stroke-width: 3;
+  }
 }
 
 .planet-item {
@@ -692,8 +755,8 @@ onUnmounted(() => {
 
 /* 紫色渐变球体 - PlanetOrbit */
 .sphere-purple {
-  width: 130px;
-  height: 130px;
+  width: 90px;
+  height: 90px;
   background: radial-gradient(
     circle at 30% 30%,
     rgba(168, 85, 247, 0.4) 0%,
@@ -711,8 +774,8 @@ onUnmounted(() => {
 
 /* 星云渐变球体 - NebulaLoader */
 .sphere-nebula {
-  width: 140px;
-  height: 140px;
+  width: 90px;
+  height: 90px;
   background: radial-gradient(
     circle at 35% 35%,
     rgba(255, 191, 72, 0.35) 0%,
@@ -730,8 +793,8 @@ onUnmounted(() => {
 
 /* 金色渐变球体 - PyramidLoader */
 .sphere-gold {
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 80px;
   background: radial-gradient(
     circle at 30% 30%,
     rgba(43, 222, 172, 0.35) 0%,
@@ -808,96 +871,6 @@ onUnmounted(() => {
 .tip-fade-leave-to {
   opacity: 0;
   transform: translateX(-50%) translateY(10px);
-}
-
-/* ==================== 背景层 ==================== */
-.bg-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  /* 添加渐变叠加，让 CSS 背景与 Mars3D 地球融合 */
-  background: linear-gradient(
-    180deg,
-    rgba(15, 12, 41, 0.85) 0%,
-    rgba(48, 43, 99, 0.7) 40%,
-    rgba(36, 36, 62, 0.6) 100%
-  );
-}
-
-.nebula-bg {
-  position: absolute;
-  inset: -50%;
-  background:
-    radial-gradient(ellipse at 20% 20%, rgba(168, 85, 247, 0.25) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 30%, rgba(236, 72, 153, 0.2) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse at 30% 60%, rgba(16, 185, 129, 0.12) 0%, transparent 40%);
-  animation: nebulaFlow 20s ease-in-out infinite;
-}
-
-@keyframes nebulaFlow {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-}
-
-.mid-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-}
-
-.floating-code {
-  position: absolute;
-  font-family: 'Courier New', monospace;
-  color: rgba(168, 85, 247, 0.5);
-  animation: floatCode 8s ease-in-out infinite;
-  text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
-}
-
-@keyframes floatCode {
-  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
-  50% { transform: translateY(-8px) rotate(3deg); opacity: 0.5; }
-}
-
-.near-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-}
-
-.geo-lines {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  opacity: 0.12;
-  z-index: 1;
-}
-
-.geo-lines path {
-  fill: none;
-  stroke-width: 0.8;
-  stroke-linecap: round;
-}
-
-.stars-container {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.star {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 50%;
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
-  animation: starTwinkle 3s ease-in-out infinite;
-}
-
-@keyframes starTwinkle {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
 }
 
 /* ==================== 代码雨 ==================== */

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import Fireworks from "@/components/effects/Fireworks.vue";
-import { noticeConfig } from "@/config/notice";
 
 interface Props {
   show: boolean;
@@ -26,7 +25,6 @@ const emit = defineEmits<{
 }>();
 
 const modalRef = ref<HTMLElement | null>(null);
-const showFireworks = ref(false);
 
 // 处理点击遮罩层关闭
 const handleMaskClick = (e: MouseEvent) => {
@@ -35,34 +33,12 @@ const handleMaskClick = (e: MouseEvent) => {
   }
 };
 
-// 处理ESC键关闭
-const handleKeydown = (e: KeyboardEvent) => {
-  if (e.key === "Escape" && props.show) {
-    emit("update:show", false);
-  }
-};
-
-// 监听键盘事件
-watch(
-  () => props.show,
-  (val: boolean) => {
-    if (val) {
-      document.addEventListener("keydown", handleKeydown);
-    } else {
-      document.removeEventListener("keydown", handleKeydown);
-    }
-  },
-);
-
 // 监听显示状态
 watch(
   () => props.show,
   (newVal: boolean) => {
-    if (newVal && props.showFireworks && noticeConfig.showFireworks) {
-      showFireworks.value = true;
-      setTimeout(() => {
-        showFireworks.value = false;
-      }, 3000);
+    if (newVal && props.showFireworks) {
+      // 烟花效果由 props.showFireworks 直接控制
     }
   },
 );
