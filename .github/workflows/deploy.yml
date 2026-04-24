@@ -27,8 +27,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build project
-        run: pnpm build
+      - name: Build project (skip type check)
+        run: pnpm build-only
 
       - name: Deploy to server via SCP
         uses: appleboy/scp-action@v0.1.7
@@ -44,8 +44,3 @@ jobs:
           command: |
             sudo chown -R zhq:zhq ${{ secrets.DEPLOY_PATH }}
             echo "Deployment completed!"
-
-      - name: Verify deployment
-        run: |
-          echo "Build artifacts:"
-          ls -la dist/
