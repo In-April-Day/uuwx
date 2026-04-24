@@ -41,6 +41,14 @@ jobs:
           target: "${{ secrets.DEPLOY_PATH }}"
           strip_components: 0
           overwrite: true
-          command: |
-            sudo chown -R zhq:zhq ${{ secrets.DEPLOY_PATH }}
+
+      - name: Fix permissions on server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            chown -R zhq:zhq ${{ secrets.DEPLOY_PATH }}
             echo "Deployment completed!"
